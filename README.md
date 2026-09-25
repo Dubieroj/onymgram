@@ -1,58 +1,126 @@
-# Telegram Web A
+# Onymgram
 
-This project won the first prize 🥇 at [Telegram Lightweight Client Contest](https://contest.com/javascript-web-3) and now is an official Telegram client available to anyone at [web.telegram.org/a](https://web.telegram.org/a).
+An independent [Onym](https://onym.foundation) interface built on
+[Telegram Web A](https://github.com/Ajaxy/telegram-tt): Telegram's web client with
+MTProto taken out and the Onym network's own protocols put in its place. It fills the
+**Interface** seat of the Onym system
+([`interface/Interface.md`](https://github.com/onymchat/onym-system/blob/main/interface/Interface.md)):
+a window onto the network that holds no accounts and can be replaced without asking anyone.
 
-According to the original contest rules, it has nearly zero dependencies and is fully based on its own [Teact](https://github.com/Ajaxy/teact) framework (which re-implements React paradigm). It also uses a custom version of [GramJS](https://github.com/gram-js/gramjs) as an MTProto implementation.
+It speaks to the same relays, in the formats the Onym iOS and Android apps use, so a user of this
+interface can sit in the same group chat as users of the apps.
 
-The project incorporates lots of technologically advanced features, modern Web APIs and techniques: WebSockets, Web Workers and WebAssembly, multi-level caching and PWA, voice recording and media streaming, cryptography and raw binary data operations, optimistic and progressive interfaces, complicated CSS/Canvas/SVG animations, reactive data streams, and so much more.
+Forked from `telegram-tt` at
+[`ea0d226`](https://github.com/Ajaxy/telegram-tt/commit/ea0d226147a80f05253bf1a6ffef08d694b8e6e4)
+(22 September 2026). The upstream README is kept as [`README.telegram-web-a.md`](README.telegram-web-a.md).
 
-Feel free to explore, provide feedback and contribute.
+## What changed, in one picture
 
-## Local setup
+```
+Telegram Web A UI  ──callApi('fetchChats' | 'sendMessage' | …)──►  API web worker
+   (unchanged                                                       ├─ before: GramJS → MTProto → Telegram's servers
+    components)   ◄──────────── ApiUpdate stream ──────────────────  └─ now:    src/api/onym → Onym protocols
+                                                                              ├─ identity: BIP-39 → Nostr / BLS12-381 / Ed25519 / X25519 keys
+                                                                              ├─ sealed envelope: X25519 + HKDF + AES-256-GCM, Ed25519-signed
+                                                                              ├─ courier: Nostr kind 34113 inboxes, fresh key per event
+                                                                              ├─ groups: Tyranny rosters, Poseidon/Merkle commitment check
+                                                                              └─ media: encrypted blobs on Blossom
+```
+
+The UI calls the worker by method name and receives plain `Api*` objects, so the whole
+Telegram interface runs on the Onym network with the MTProto layer swapped out underneath.
+Methods Onym has no counterpart for (stickers, stories, payments, calls…) answer `undefined`,
+which the UI already treats as "not available".
+
+| Onym | How it looks here |
+|---|---|
+| A BIP-39 phrase is the identity | Sign-in screen: create twelve words or enter yours; no phone, no email |
+| Your inbox key | Settings → Onym identity: invite link `https://onym.app/i?k=…` and its QR code |
+| A Founder (Tyranny) group | A Telegram group; the admin shows as *Owner* |
+| A member's self-chosen alias | A user; the card says the name is not verified |
+| Invitations, join requests, status | The **Onymgram** service chat, with Join / Decline buttons |
+| Delivered / read receipts | One or two ticks |
+| An encrypted Blossom image | A photo |
+
+## Protocol support
+
+Written to the formats of `onym-ios` (`4e7f60b`) and `onym-android` (`b5d21e7`). Exercised end to end
+over the live relay and Blossom against a simulator of the app's admin side
+([below](#exercise-it-against-the-real-network)); not yet against the apps themselves.
+
+- **Identity**: every key the apps derive from a phrase, pinned to the apps' own cross-platform
+  fixture (`abandon … about` → `GB5DHQE43…YJ7A`, inbox tag `f462ae97384bd242`).
+- **Courier**: `onym:message-implementation:nostr-courier-v1` inbox events — the four tags, the three
+  filters, a fresh BIP-340 key per event, full id and Schnorr checks on receipt, relay `OK` outcomes
+  (`accepted` / `rejected` / `unreachable` / `unknown`, never silence read as success).
+- **Envelope** `x25519-aes-256-gcm-v1`: seal and open, the sender's Ed25519 signature required for any
+  chat message. The field set and sender signatures match 300 real envelopes on `wss://nostr.onym.app`.
+- **Payloads**: group invite offers, join requests (with the rules agreement signature), invitations,
+  member announcements, name and avatar changes, chat messages, receipts — decoded in the apps' order,
+  accepting iOS's omitted and Android's `null` optionals.
+- **Poseidon** over BLS12-381 Fr as onym-contracts defines it, reproducing the contracts' canonical
+  depth-5 commitment `66d6ca2b…78be`: a joiner's leaf hash, and a check that an invitation's roster
+  produces the commitment it claims.
+- **Media**: Blossom blobs fetched only from the interface's own servers, checked against their SHA-256
+  address, then decrypted.
+
+## Honest limits
+
+- **Joins and chats; does not create groups yet.** Creating a group or approving a join anchors the new
+  roster on Stellar with a TurboPlonk proof. That needs the onym-contracts prover compiled to WebAssembly
+  and a relayer this browser can reach (the default one sends no CORS headers and wants a token the apps
+  are built with). Until then, someone with the Onym app creates the group and invites you.
+- **The chain anchor is not checked.** An invitation must be signed by its admin and its roster must
+  reproduce its own commitment, but the commitment is not compared with the Stellar contract. The group
+  info panel says so.
+- **Text and incoming photos only.** Sending photos, video, voice and albums is not implemented; received
+  video, voice and albums show as a placeholder.
+- **Browser storage.** Identity and chats are AES-GCM-sealed in IndexedDB under a non-extractable key that
+  this browser generated, and Telegram Web A's own plaintext state cache is switched off. That keeps them
+  from casual reading of the disk, not from code running in the page.
+- **Not audited.** Like the Onym apps, this is alpha software.
+
+## Run it
+
+Node 24+ and npm 11:
 
 ```sh
-mv .env.example .env
-
-npm i
+npm ci
+npm run dev                                  # → http://localhost:1234
+npx vitest run -c vitest.onym.config.ts      # the protocol core: fixtures, vectors, envelopes
+npm run check:ts
 ```
 
-Obtain API ID and API hash on [my.telegram.org](https://my.telegram.org) and populate the `.env` file.
+npm 11.11 can refuse the upstream `.npmrc` on a clean install (`EALLOWGIT` for `opus-recorder`, then
+"`--min-release-age` cannot be provided when using `--before`"). Installing from the lockfile with that file
+set aside works: `mv .npmrc .npmrc.off && npm ci; mv .npmrc.off .npmrc` (git dependencies are fetched over
+HTTPS if SSH to GitHub is not set up: `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=url.https://github.com/.insteadOf
+GIT_CONFIG_VALUE_0=ssh://git@github.com/`).
 
-## Dev mode
+### Exercise it against the real network
+
+`dev/onym/simulate-admin.ts` plays the Onym app's admin side, in the apps' formats, against the live
+relay: it sends you an invitation, answers your join request with an invitation, writes to you, and
+(with `--photo`) uploads an encrypted image to Blossom and sends it.
 
 ```sh
-npm run dev
+npx tsx dev/onym/simulate-admin.ts 'https://onym.app/i?k=…' --photo some.jpg
 ```
 
-### Invoking API from console
+Copy the link from Settings → Onym identity, press **Join** in the Onymgram chat, reply in the group.
 
-Start your dev server and locate GramJS worker in the console context.
+## Where things are
 
-All constructors and functions available in global `GramJs` variable.
+| Path | What it is |
+|---|---|
+| `src/api/onym/core/` | The protocol, independent of Telegram: `bip39`, `identity`, `envelope`, `nostr`, `relayPool`, `payloads`, `links`, `rules`, `poseidon`, `blossom`, and their tests |
+| `src/api/onym/messenger.ts` | The Onym messenger state machine: offers, joins, invitations, announcements, messages, receipts |
+| `src/api/onym/telegram.ts`, `methods/` | The mapping to Telegram's `Api*` objects and `callApi` methods |
+| `src/api/onym/worker.ts`, `init.ts` | The worker the UI now starts in place of GramJS's |
+| `src/components/auth/AuthOnym.tsx` | Sign-in with a phrase |
+| `src/components/left/settings/SettingsOnym.tsx` | Invite link and QR, recovery phrase, relays, keys |
+| `dev/onym/simulate-admin.ts` | The admin-side simulator above |
 
-Run `npm run gramjs:tl full` to get access to all available Telegram methods.
+## License
 
-Example usage:
-``` javascript
-await invoke(new GramJs.help.GetAppConfig())
-```
-
-### Dependencies
-* [GramJS](https://github.com/gram-js/gramjs) ([MIT License](https://github.com/gram-js/gramjs/blob/master/LICENSE))
-* [fflate](https://github.com/101arrowz/fflate) ([MIT License](https://github.com/101arrowz/fflate/blob/master/LICENSE))
-* [cryptography](https://github.com/spalt08/cryptography) ([Apache License 2.0](https://github.com/spalt08/cryptography/blob/master/LICENSE))
-* [emoji-data](https://github.com/iamcal/emoji-data) ([MIT License](https://github.com/iamcal/emoji-data/blob/master/LICENSE))
-* [twemoji-parser](https://github.com/jdecked/twemoji-parser) ([MIT License](https://github.com/jdecked/twemoji-parser/blob/master/LICENSE.md))
-* [tlottie](https://github.com/dkaraush/tlottie) ([MIT License](https://github.com/dkaraush/tlottie/))
-* [opus-recorder](https://github.com/chris-rudmin/opus-recorder) ([Various Licenses](https://github.com/chris-rudmin/opus-recorder/blob/master/LICENSE.md))
-* [qr-code-styling](https://github.com/kozakdenys/qr-code-styling) ([MIT License](https://github.com/kozakdenys/qr-code-styling/blob/master/LICENSE))
-* [music-metadata](https://github.com/Borewit/music-metadata) ([MIT License](https://github.com/Borewit/music-metadata/blob/master/LICENSE.txt))
-* [Tiptap](https://github.com/ueberdosis/tiptap) ([MIT License](https://github.com/ueberdosis/tiptap/blob/main/LICENSE.md))
-* [marked](https://github.com/markedjs/marked) ([MIT License](https://github.com/markedjs/marked/blob/master/LICENSE.md))
-* [lowlight](https://github.com/wooorm/lowlight) ([MIT License](https://github.com/wooorm/lowlight/blob/main/license))
-* [idb-keyval](https://github.com/jakearchibald/idb-keyval) ([Apache License 2.0](https://github.com/jakearchibald/idb-keyval/blob/main/LICENCE))
-* [fasttextweb](https://github.com/karmdesai/fastTextWeb)
-* fastblur
-
-## Bug reports and Suggestions
-If you find an issue with this app, let Telegram know using the [Suggestions Platform](https://bugs.telegram.org/c/4002).
+GPL-3.0-or-later, as Telegram Web A. See [LICENSE](LICENSE).
