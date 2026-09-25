@@ -127,6 +127,7 @@ Copy the link from Settings → Onym identity, press **Join** in the Onymgram ch
 | `src/components/left/settings/SettingsOnym.tsx` | Invite link and QR, recovery phrase, keys |
 | `src/components/left/settings/SettingsOnymServers.tsx` | The relay and Blossom server lists |
 | `dev/onym/simulate-admin.ts` | The admin-side simulator above |
+| `docs/onym/` | For other ports and interfaces: the protocol as verified here, the admin side still to build, and how a Telegram client is put on Onym |
 
 ## License
 
