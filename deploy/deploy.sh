@@ -30,13 +30,14 @@ trap 'rm -rf "$OUT"' EXIT
 BASE_URL="$PUBLIC_URL" npx vite build --outDir "$OUT" --emptyOutDir
 
 ssh "$DEPLOY_HOST" 'install -d -m 755 /var/lib/onymgram /var/lib/onymgram/site'
-rsync -rlt --delete --chmod=D755,F644 \
+rsync -rlt --delete \
   --exclude '*.map' --exclude build-stats.json --exclude statoscope-report.html \
   "$OUT/" "$DEPLOY_HOST:/var/lib/onymgram/site/"
 scp deploy/onymgram.nginx.conf "$DEPLOY_HOST:/etc/nginx/snippets/onymgram.conf"
 
 ssh "$DEPLOY_HOST" SITE_CONF="$SITE_CONF" 'bash -s' <<'REMOTE'
 set -euo pipefail
+chmod -R u=rwX,go=rX /var/lib/onymgram/site
 if ! grep -q "snippets/onymgram.conf" "$SITE_CONF"; then
     mkdir -p /root/nginx-backups
     BACKUP="/root/nginx-backups/$(basename "$SITE_CONF").$(date +%Y%m%d-%H%M%S)"
