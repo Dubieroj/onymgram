@@ -32,6 +32,18 @@ const INITIAL_KEYS: LangKey[] = [
   'ErrorFloodTime',
   'ErrorUnexpected',
   'ErrorUnexpectedMessage',
+  'OnymLoginNote',
+  'OnymCreateIdentity',
+  'OnymEnterPhrase',
+  'OnymWriteDownPhrase',
+  'OnymPhraseSaved',
+  'OnymEnterPhraseNote',
+  'OnymRecoveryPhrase',
+  'OnymPhraseProblemLength',
+  'OnymPhraseProblemWord',
+  'OnymPhraseProblemChecksum',
+  'Next',
+  'Back',
 ];
 
 export default INITIAL_KEYS;

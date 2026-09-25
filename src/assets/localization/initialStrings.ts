@@ -34,5 +34,17 @@ export default {
   "ErrorPhoneBanned": "This phone number is banned",
   "ErrorFloodTime": "Too many attempts, please try again in {time}",
   "ErrorUnexpected": "Unexpected error",
-  "ErrorUnexpectedMessage": "Unexpected error: {error}"
+  "ErrorUnexpectedMessage": "Unexpected error: {error}",
+  "OnymLoginNote": "Your Onym identity is a recovery phrase that stays with you. No phone number and no email: this browser keeps it encrypted, and only you can restore it elsewhere.",
+  "OnymCreateIdentity": "Create a new identity",
+  "OnymEnterPhrase": "I have a recovery phrase",
+  "OnymWriteDownPhrase": "Write these twelve words down, in order, and keep them offline. They are your identity: anyone who has them is you, and no one can reset them.",
+  "OnymPhraseSaved": "I have written the words down",
+  "OnymEnterPhraseNote": "Enter the twelve or twenty-four words of your Onym recovery phrase.",
+  "OnymRecoveryPhrase": "Recovery phrase",
+  "OnymPhraseProblemLength": "A recovery phrase has 12, 15, 18, 21 or 24 words.",
+  "OnymPhraseProblemWord": "One of the words is not in the BIP-39 word list.",
+  "OnymPhraseProblemChecksum": "The words do not form a valid phrase. Check their order and spelling.",
+  "Next": "Next",
+  "Back": "Back"
 } as Record<LangKey, LangPackStringValue>;
