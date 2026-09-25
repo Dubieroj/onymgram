@@ -3314,3 +3314,4 @@
 "OnymStellarAccount" = "Stellar account (sending key)";
 "OnymMemberKey" = "Group member key (BLS12-381)";
 "OnymAboutInterface" = "An independent Onym interface on Telegram Web A (GPL-3.0). It joins groups created in the Onym apps and chats in them. It does not yet create groups, and it checks an invitation's roster against its commitment but not against the Stellar anchor.";
+"InputAttachPopoverPhoto" = "Photo";

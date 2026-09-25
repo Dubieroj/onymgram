@@ -22,8 +22,8 @@ import { MAIN_THREAD_ID } from '../../api/types';
 
 import {
   ANONYMOUS_USER_ID,
-  ARCHIVED_FOLDER_ID, GENERAL_TOPIC_ID, REPLIES_USER_ID, TME_LINK_PREFIX,
-  VERIFICATION_CODES_USER_ID,
+  ARCHIVED_FOLDER_ID, GENERAL_TOPIC_ID, HAS_TELEGRAM_SERVICES, REPLIES_USER_ID, SERVICE_NOTIFICATIONS_USER_ID,
+  TME_LINK_PREFIX, VERIFICATION_CODES_USER_ID,
 } from '../../config';
 import { formatDateToString, formatTime } from '../../util/dates/oldDateFormat';
 import { getPeerIdDividend, isUserId } from '../../util/entities/ids';
@@ -225,6 +225,26 @@ export function getAllowedAttachmentOptions(
       canSendAudios: false,
       canSendVoices: false,
       canSendPlainText: false,
+      canSendDocuments: false,
+      canAttachToDoLists: false,
+    };
+  }
+
+  if (!HAS_TELEGRAM_SERVICES) {
+    // The Onym network carries text and photos; the service chat holds this interface's own notices, text only
+    const canSendPhotos = chat.id !== SERVICE_NOTIFICATIONS_USER_ID;
+    return {
+      canAttachMedia: canSendPhotos,
+      canAttachPolls: false,
+      canSendStickers: false,
+      canSendGifs: false,
+      canAttachEmbedLinks: true,
+      canSendPhotos,
+      canSendVideos: false,
+      canSendRoundVideos: false,
+      canSendAudios: false,
+      canSendVoices: false,
+      canSendPlainText: true,
       canSendDocuments: false,
       canAttachToDoLists: false,
     };

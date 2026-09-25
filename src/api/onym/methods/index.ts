@@ -7,7 +7,7 @@ export { fetchCurrentUser, fetchFullUser } from './users';
 export { fetchChat, fetchChats, fetchFullChat } from './chats';
 
 export {
-  fetchMessage, fetchMessages, fetchMessagesById, markMessageListRead, sendMessage,
+  fetchMessage, fetchMessages, fetchMessagesById, markMessageListRead, searchMessagesInChat, sendMessage,
 } from './messages';
 
 export { answerCallbackButton } from './bots';

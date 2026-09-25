@@ -1,9 +1,13 @@
 import type { ThreadId } from '../../../types';
-import type { ApiChat, ApiMessage, ApiOnProgress } from '../../types';
+import type {
+  ApiAttachment, ApiChat, ApiGlobalMessageSearchType, ApiMessage, ApiMessageSearchType, ApiOnProgress, ApiPeer,
+} from '../../types';
+import type { ImageAttachment } from '../core/payloads';
 import type { Session } from '../session';
 
 import { sendApiUpdate } from '../../gramjs/updates/apiUpdateEmitter';
 import { parseIdentityLink, parseJoinLink } from '../core/links';
+import { uploadPhoto } from '../photo';
 import { buildMessageForUi, buildNoticeForUi, getSession } from '../session';
 import {
   buildNextLocalId, getChatIdOfGroup, getGroupIdByChatId, SYSTEM_CHAT_ID,
@@ -14,13 +18,16 @@ type SendParams = {
   text?: string;
   lastMessageId?: number;
   replyInfo?: { type: string; replyToMsgId?: number };
-  attachment?: unknown;
+  attachment?: ApiAttachment;
   sticker?: unknown;
   gif?: unknown;
   poll?: unknown;
   contact?: unknown;
   wasDrafted?: boolean;
 };
+
+const LOCAL_PHOTO_ID = 'temp';
+const GIF_MIME_TYPE = 'image/gif';
 
 const HELP_TEXT = [
   'Paste a join link (https://onym.app/join?c=…) to ask to join a group.',
@@ -82,10 +89,23 @@ export function fetchMessagesById({ chat, messageIds }: { chat: ApiChat; message
   return Promise.resolve(listChatMessages(current, chat.id).filter(({ id }) => ids.has(id)));
 }
 
+// The Onym network carries text and photos: anything else the composer offers is refused before it is shown as sent
 export async function sendMessage(params: SendParams, onProgress?: ApiOnProgress): Promise<void> {
   const current = getSession();
-  const { chat, text = '', wasDrafted } = params;
+  const { chat, text = '', attachment, wasDrafted } = params;
   if (!current || !chat) return;
+
+  const photo = attachment && isSendablePhoto(attachment) && chat.id !== SYSTEM_CHAT_ID ? attachment : undefined;
+  const hasUnsupported = Boolean(
+    (attachment && !photo) || params.sticker || params.gif || params.poll || params.contact,
+  );
+  if (hasUnsupported || (!text.trim() && !photo)) {
+    sendApiUpdate({
+      '@type': 'error',
+      error: { message: 'Onym carries text and photos: this interface does not send other media.' },
+    });
+    return;
+  }
 
   const localMessage: ApiMessage = {
     id: buildNextLocalId(params.lastMessageId),
@@ -93,21 +113,12 @@ export async function sendMessage(params: SendParams, onProgress?: ApiOnProgress
     date: Math.floor(Date.now() / 1000),
     isOutgoing: true,
     senderId: current.selfUserId,
-    content: { text: { text } },
+    content: photo ? { photo: buildLocalPhoto(photo), text: text ? { text } : undefined } : { text: { text } },
     sendingState: 'messageSendingStatePending',
     replyInfo: params.replyInfo?.type === 'message' && params.replyInfo.replyToMsgId
       ? { type: 'message', replyToMsgId: params.replyInfo.replyToMsgId }
       : undefined,
   };
-
-  const hasMedia = Boolean(params.attachment || params.sticker || params.gif || params.poll || params.contact);
-  if (hasMedia || !text.trim()) {
-    sendApiUpdate({
-      '@type': 'error',
-      error: { message: 'This interface sends text only: Onym media is not supported here yet.' },
-    });
-    return;
-  }
 
   sendApiUpdate({
     '@type': 'newMessage', chatId: chat.id, id: localMessage.id, message: localMessage, wasDrafted,
@@ -134,12 +145,71 @@ export async function sendMessage(params: SendParams, onProgress?: ApiOnProgress
     ? current.messenger.getMessages(groupId).find(({ seq }) => seq === replyToSeq)?.logicalId
     : undefined;
 
-  const sent = await current.messenger.sendText(groupId, text, replyTo);
+  let image: ImageAttachment | undefined;
+  if (photo) {
+    try {
+      image = await uploadPhoto(await (await fetch(photo.blobUrl)).blob());
+    } catch (err) {
+      sendApiUpdate({
+        '@type': 'updateMessageSendFailed', chatId: chat.id, localId: localMessage.id, error: String(err),
+      });
+      return;
+    }
+  }
+
+  const sent = await current.messenger.sendMessage(groupId, { text, replyTo, image });
+  const message = buildMessageForUi(current, sent);
+  if (message.content.photo && photo) {
+    // Keep showing the local copy instead of fetching back the photo just uploaded
+    message.content.photo.blobUrl = photo.blobUrl;
+  }
   sendApiUpdate({
-    '@type': 'updateMessageSendSucceeded',
-    chatId: chat.id,
-    localId: localMessage.id,
-    message: buildMessageForUi(current, sent),
+    '@type': 'updateMessageSendSucceeded', chatId: chat.id, localId: localMessage.id, message,
+  });
+}
+
+// Photos go as images; GIFs and anything chosen to go as a file do not
+function isSendablePhoto(attachment: ApiAttachment) {
+  return attachment.mimeType.startsWith('image/') && attachment.mimeType !== GIF_MIME_TYPE
+    && !attachment.shouldSendAsFile && Boolean(attachment.quick);
+}
+
+function buildLocalPhoto({ blobUrl, previewBlobUrl, quick }: ApiAttachment) {
+  const { width, height } = quick!;
+  return {
+    mediaType: 'photo' as const,
+    id: LOCAL_PHOTO_ID,
+    sizes: [],
+    thumbnail: { width, height, dataUri: previewBlobUrl || blobUrl },
+    blobUrl,
+    date: Math.floor(Date.now() / 1000),
+  };
+}
+
+// Shared media and in-chat search run over the messages this interface holds: photos for the media tab, text for a
+// query; the other Telegram media kinds never occur on the Onym network
+export function searchMessagesInChat({
+  peer, type, query, offsetId, limit,
+}: {
+  peer: ApiPeer; type?: ApiMessageSearchType | ApiGlobalMessageSearchType; query?: string; offsetId?: number;
+  limit: number;
+}) {
+  const current = getSession();
+  if (!current) return Promise.resolve(undefined);
+
+  const needle = query?.trim().toLowerCase();
+  const matches = listChatMessages(current, peer.id)
+    .filter(({ content }) => (type === 'media' ? Boolean(content.photo) : !type || type === 'text'))
+    .filter(({ content }) => !needle || Boolean(content.text?.text.toLowerCase().includes(needle)))
+    .sort((a, b) => b.id - a.id);
+  const page = matches.filter(({ id }) => !offsetId || id < offsetId).slice(0, limit);
+
+  return Promise.resolve({
+    userStatusesById: {},
+    messages: page,
+    topics: [],
+    totalCount: matches.length,
+    nextOffsetId: page.length === limit ? page[page.length - 1].id : undefined,
   });
 }
 

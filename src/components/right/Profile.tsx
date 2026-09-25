@@ -26,7 +26,7 @@ import { MAIN_THREAD_ID } from '../../api/types';
 import { LoadMoreDirection, MediaViewerOrigin, NewChatMembersProgress } from '../../types';
 
 import {
-  MEMBERS_SLICE, PROFILE_SENSITIVE_AREA, SHARED_MEDIA_SLICE, SLIDE_TRANSITION_DURATION,
+  HAS_TELEGRAM_SERVICES, MEMBERS_SLICE, PROFILE_SENSITIVE_AREA, SHARED_MEDIA_SLICE, SLIDE_TRANSITION_DURATION,
 } from '../../config';
 import {
   getHasAdminRight,
@@ -400,16 +400,17 @@ const Profile = ({
       arr.push({ type: 'previewMedia', key: 'ProfileTabBotPreview' });
     }
 
+    // Onym groups carry text and photos only, so the file, link, music, GIF, voice and poll tabs would stay empty
     if (!isOwnProfile) {
-      arr.push(...TABS);
+      arr.push(...(HAS_TELEGRAM_SERVICES ? TABS : TABS.filter(({ type }) => type === 'media')));
     }
 
     // Voice messages filter currently does not work in forum topics. Return it when it's fixed on the server side.
-    if (!isTopicInfo && !isOwnProfile) {
+    if (HAS_TELEGRAM_SERVICES && !isTopicInfo && !isOwnProfile) {
       arr.push({ type: 'voice', key: 'ProfileTabVoice' });
     }
 
-    if (!isOwnProfile) {
+    if (HAS_TELEGRAM_SERVICES && !isOwnProfile) {
       arr.push({ type: 'polls', key: 'ProfileTabPolls' });
     }
 
@@ -1482,7 +1483,8 @@ export default memo(withGlobal<OwnProps>(
     const adminMembersById = chatFullInfo?.adminMembersById;
     const areMembersHidden = hasMembersTab && chat
       && (chat.isForbidden || (chatFullInfo && !chatFullInfo.canViewMembers));
-    const canAddMembers = hasMembersTab && chat
+    // Adding a member to an Onym group is its admin's on-chain act, done in the Onym apps
+    const canAddMembers = HAS_TELEGRAM_SERVICES && hasMembersTab && chat
       && (getHasAdminRight(chat, 'inviteUsers') || (!isChannel && !isUserRightBanned(chat, 'inviteUsers')));
     const canDeleteMembers = hasMembersTab && selectCanBanUsers(global, chatId);
     const activeDownloads = selectActiveDownloads(global);

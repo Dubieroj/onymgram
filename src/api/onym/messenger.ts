@@ -242,7 +242,9 @@ export class Messenger {
     return notice;
   }
 
-  async sendText(groupId: string, text: string, replyTo?: string) {
+  async sendMessage(
+    groupId: string, { text, replyTo, image }: { text: string; replyTo?: string; image?: ImageAttachment },
+  ) {
     const group = this.state.groups[groupId];
     if (!group) throw new Error('Unknown group');
 
@@ -255,6 +257,7 @@ export class Messenger {
       replyTo,
       isOutgoing: true,
       status: 'pending',
+      image,
     });
 
     const payload = encodeChatMessage({
@@ -264,28 +267,11 @@ export class Messenger {
       sentAtMs: message.sentAtMs,
       replyToMessageId: replyTo,
       body: text,
-    });
-    const outcomes = await this.sendToMembers(group, payload);
-    const isSent = outcomes.every(Boolean);
-    this.updateMessage({ ...message, status: isSent ? 'sent' : 'failed' });
-    return this.findMessage(groupId, message.logicalId)!;
-  }
-
-  async retryMessage(groupId: string, logicalId: string) {
-    const message = this.findMessage(groupId, logicalId);
-    const group = this.state.groups[groupId];
-    if (!message || !group || message.status !== 'failed') return;
-
-    const payload = encodeChatMessage({
-      messageId: message.logicalId,
-      groupId,
-      senderBlsPublicKey: this.me.blsPublicKey,
-      sentAtMs: message.sentAtMs,
-      replyToMessageId: message.replyTo,
-      body: message.text,
+      image,
     });
     const outcomes = await this.sendToMembers(group, payload);
     this.updateMessage({ ...message, status: outcomes.every(Boolean) ? 'sent' : 'failed' });
+    return this.findMessage(groupId, message.logicalId)!;
   }
 
   // Read receipts go to each sender whose messages the user has now seen

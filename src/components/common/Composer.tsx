@@ -45,6 +45,7 @@ import { ApiMediaFormat, ApiMessageEntityTypes, MAIN_THREAD_ID } from '../../api
 
 import {
   BASE_EMOJI_KEYWORD_LANG,
+  HAS_TELEGRAM_SERVICES,
   HEART_REACTION,
   MAX_UPLOAD_FILEPART_SIZE,
   MIN_ROUND_VIDEO_RECORDING_TIME,
@@ -1169,7 +1170,7 @@ const Composer = ({
       return MainButtonState.Edit;
     }
 
-    if ((IS_VOICE_RECORDING_SUPPORTED || IS_VIDEO_RECORDING_SUPPORTED)
+    if (HAS_TELEGRAM_SERVICES && (IS_VOICE_RECORDING_SUPPORTED || IS_VIDEO_RECORDING_SUPPORTED)
       && !activeVoiceRecording && !activeVideoRecording && !isForwarding && !isRichInputExpansionActive
       && !(hasInputContent && !hasAttachments)) {
       return MainButtonState.Record;
@@ -2758,7 +2759,7 @@ const Composer = ({
               threadId={threadId}
               editingMessage={editingMessage}
               canEditMedia={canMediaBeReplaced}
-              isButtonVisible={!activeRecording}
+              isButtonVisible={!activeRecording && (HAS_TELEGRAM_SERVICES || canAttachMedia)}
               canAttachMedia={canAttachMedia}
               canAttachFiles={!hasRichOnlyContent}
               canAttachPolls={canAttachPolls}
@@ -2767,7 +2768,7 @@ const Composer = ({
               canSendVideos={canSendVideos}
               canSendDocuments={canSendDocuments}
               canSendAudios={canSendAudios}
-              canInsertDate={!isComposerBlocked}
+              canInsertDate={HAS_TELEGRAM_SERVICES && !isComposerBlocked}
               onFileSelect={handleFileSelect}
               onDateInsert={handleFormattedDateInsert}
               onTodoListCreate={handleTodoListCreate}
@@ -2780,7 +2781,7 @@ const Composer = ({
               onMenuClose={onAttachMenuClose}
               messageListType={messageListType}
               paidMessagesStars={paidMessagesStars}
-              canExpandRichInput={isInMessageList && !isRichInputExpansionActive}
+              canExpandRichInput={HAS_TELEGRAM_SERVICES && isInMessageList && !isRichInputExpansionActive}
               menuPositionX={isInMessageList ? 'left' : 'right'}
               onRichInputExpand={handleOpenRichInput}
             />

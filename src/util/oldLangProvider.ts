@@ -133,8 +133,8 @@ function createLangFn() {
     const langString = langPack?.[key];
     if (!langString) {
       // The legacy packs come from Telegram's servers, which this build never contacts: plain strings fall back to
-      // the bundled English strings of the current localization
-      return value === undefined ? getBundledTranslationFn()(key as RegularLangKey) : key;
+      // the bundled English strings, where dotted legacy keys live without their dots
+      return value === undefined ? getBundledTranslationFn()(key.replace(/\./g, '') as RegularLangKey) : key;
     }
 
     return processTranslation(langString, key, value, format, pluralValue);

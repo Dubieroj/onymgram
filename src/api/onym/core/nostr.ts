@@ -35,9 +35,9 @@ export function computeEventId(event: Omit<NostrEvent, 'id' | 'sig'>, shouldEsca
   return toHex(sha256(utf8(shouldEscapeSlashes ? serialized.replace(/\//g, '\\/') : serialized)));
 }
 
-// Every message and inbox event is signed by a fresh key (§5): it reduces stable sender correlation and is not an
-// Onym identity; the sealed envelope authenticates the sender on its own
-export function signWithEphemeralKey(kind: number, tags: string[][], payload: Uint8Array, nowMs = Date.now()) {
+// Every event is signed by a fresh key (§5): it reduces stable sender correlation and is not an Onym identity;
+// the sealed envelope authenticates the sender on its own
+export function signWithEphemeralKey(kind: number, tags: string[][], content: string, nowMs = Date.now()) {
   const secretKey = schnorr.utils.randomSecretKey();
   const pubkey = toHex(schnorr.getPublicKey(secretKey));
   const unsigned = {
@@ -45,7 +45,7 @@ export function signWithEphemeralKey(kind: number, tags: string[][], payload: Ui
     created_at: Math.floor(nowMs / 1000),
     kind,
     tags: [...tags, ['ms', String(nowMs)]],
-    content: toBase64(payload),
+    content,
   };
   const id = computeEventId(unsigned);
   const sig = toHex(schnorr.sign(fromHex(id), secretKey));
@@ -59,7 +59,7 @@ export function buildInboxEvent(inbox: string, payload: Uint8Array, nowMs?: numb
     ['t', inbox],
     ['sep_inbox', inbox],
     ['sep_version', '1'],
-  ], payload, nowMs);
+  ], toBase64(payload), nowMs);
 }
 
 // One `REQ` with three filters: canonical `d`, the same-kind `t` path, and the receive-only legacy kind (§7.2)

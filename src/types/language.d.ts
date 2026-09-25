@@ -2453,6 +2453,7 @@ export interface LangPair {
   'OnymStellarAccount': undefined;
   'OnymMemberKey': undefined;
   'OnymAboutInterface': undefined;
+  'InputAttachPopoverPhoto': undefined;
 }
 
 export interface LangPairWithVariables<V = LangVariable> {
