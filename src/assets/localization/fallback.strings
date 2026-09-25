@@ -3297,7 +3297,7 @@
 "OnymPhraseProblemWord" = "One of the words is not in the BIP-39 word list.";
 "OnymPhraseProblemChecksum" = "The words do not form a valid phrase. Check their order and spelling.";
 "OnymIdentity" = "Onym identity";
-"OnymIdentityDesc" = "Invite link, recovery phrase, relays";
+"OnymIdentityDesc" = "Inbox key, recovery phrase, relays";
 "OnymInviteLinkTitle" = "Your inbox key";
 "OnymInviteLinkDesc" = "Someone with the Onym app adds you to a chat with this key: they paste it in Create group, Invite by Inbox Key, or scan the QR code. Anyone who has it can send you invitations, and nothing else.";
 "OnymCopyLink" = "Copy link";

@@ -8,7 +8,7 @@ MTProto taken out and the Onym network's own protocols put in its place. It fill
 a window onto the network that holds no accounts and can be replaced without asking anyone.
 
 It speaks to the same relays, in the formats the Onym iOS and Android apps use, so a user of this
-interface can sit in the same group chat as users of the apps.
+interface sits in the same group chat as users of the apps.
 
 Forked from `telegram-tt` at
 [`ea0d226`](https://github.com/Ajaxy/telegram-tt/commit/ea0d226147a80f05253bf1a6ffef08d694b8e6e4)
@@ -35,7 +35,7 @@ which the UI already treats as "not available".
 | Onym | How it looks here |
 |---|---|
 | A BIP-39 phrase is the identity | Sign-in screen: create twelve words or enter yours; no phone, no email |
-| Your inbox key | Settings → Onym identity: invite link `https://onym.app/i?k=…` and its QR code |
+| Your inbox key | Settings → Onym identity: the key to paste into the app's *Invite by Inbox Key*, and a QR code of `https://onym.app/i?k=…` for its scanner |
 | A Founder (Tyranny) group | A Telegram group; the admin shows as *Owner* |
 | A member's self-chosen alias | A user; the card says the name is not verified |
 | Invitations, join requests, status | The **Onymgram** service chat, with Join / Decline buttons |
@@ -44,9 +44,10 @@ which the UI already treats as "not available".
 
 ## Protocol support
 
-Written to the formats of `onym-ios` (`4e7f60b`) and `onym-android` (`b5d21e7`). Exercised end to end
-over the live relay and Blossom against a simulator of the app's admin side
-([below](#exercise-it-against-the-real-network)); not yet against the apps themselves.
+Written to the formats of `onym-ios` (`4e7f60b`) and `onym-android` (`b5d21e7`). Checked with the Onym app
+itself on 25 September 2026: the app created a group, invited this interface by its inbox key, approved the
+join request, and messages went both ways over `wss://nostr.onym.app`. The admin-side simulator
+([below](#exercise-it-against-the-real-network)) repeats that path, plus a photo through Blossom.
 
 - **Identity**: every key the apps derive from a phrase, pinned to the apps' own cross-platform
   fixture (`abandon … about` → `GB5DHQE43…YJ7A`, inbox tag `f462ae97384bd242`).
