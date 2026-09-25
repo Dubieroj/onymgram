@@ -3298,10 +3298,12 @@
 "OnymPhraseProblemChecksum" = "The words do not form a valid phrase. Check their order and spelling.";
 "OnymIdentity" = "Onym identity";
 "OnymIdentityDesc" = "Invite link, recovery phrase, relays";
-"OnymInviteLinkTitle" = "Your invite link";
-"OnymInviteLinkDesc" = "Someone with the Onym app adds you to a chat with this link or QR code. It carries only your inbox key, and anyone who has it can send you invitations.";
+"OnymInviteLinkTitle" = "Your inbox key";
+"OnymInviteLinkDesc" = "Someone with the Onym app adds you to a chat with this key: they paste it in Create group, Invite by Inbox Key, or scan the QR code. Anyone who has it can send you invitations, and nothing else.";
 "OnymCopyLink" = "Copy link";
 "OnymLinkCopied" = "Invite link copied";
+"OnymCopyKey" = "Copy key";
+"OnymKeyCopied" = "Inbox key copied";
 "OnymShowPhrase" = "Show recovery phrase";
 "OnymHidePhrase" = "Hide";
 "OnymRecoveryPhraseDesc" = "These words are your whole Onym identity. Anyone who sees them can read your chats and speak as you, and no one can reset them. Show them only where nobody else can see the screen.";

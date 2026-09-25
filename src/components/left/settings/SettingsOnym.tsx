@@ -26,6 +26,7 @@ type OwnProps = {
 
 type OnymIdentity = {
   inviteLink: string;
+  inboxKey: string;
   stellarAccount: string;
   blsPublicKey: string;
   relays: string[];
@@ -61,6 +62,13 @@ const SettingsOnym = ({ isActive, onReset }: OwnProps) => {
     if (!qrRef.current.childElementCount) qrCode.append(qrRef.current);
   }, [qrCode, identity?.inviteLink]);
 
+  // The Onym app's paste field takes the bare 64-character key; its QR scanner also reads the link
+  const handleCopyKey = useLastCallback(() => {
+    if (!identity) return;
+    copyTextToClipboard(identity.inboxKey);
+    showNotification({ message: lang('OnymKeyCopied') });
+  });
+
   const handleCopyLink = useLastCallback(() => {
     if (!identity) return;
     copyTextToClipboard(identity.inviteLink);
@@ -80,8 +88,11 @@ const SettingsOnym = ({ isActive, onReset }: OwnProps) => {
       <Island>
         <IslandTitle>{lang('OnymInviteLinkTitle')}</IslandTitle>
         <div className={styles.qr} ref={qrRef} />
-        <div className={styles.link}>{identity?.inviteLink}</div>
-        <Button className={styles.button} onClick={handleCopyLink} disabled={!identity}>
+        <div className={styles.link}>{identity?.inboxKey}</div>
+        <Button className={styles.button} onClick={handleCopyKey} disabled={!identity}>
+          {lang('OnymCopyKey')}
+        </Button>
+        <Button className={styles.button} isText onClick={handleCopyLink} disabled={!identity}>
           {lang('OnymCopyLink')}
         </Button>
       </Island>

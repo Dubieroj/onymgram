@@ -18,6 +18,7 @@ export function fetchOnymIdentity() {
   if (!current) return Promise.resolve(undefined);
   return Promise.resolve({
     inviteLink: buildIdentityLink(current.identity.inboxPublicKey),
+    inboxKey: current.identity.inboxPublicKey,
     stellarAccount: current.identity.stellarAccount,
     blsPublicKey: current.identity.blsPublicKey,
     relays: current.pool.getRelayUrls(),

@@ -134,9 +134,10 @@ export class Messenger {
       this.addNotice([
         'This is your Onym identity, kept encrypted in this browser.',
         '',
-        `Your invite link: ${buildIdentityLink(this.me.inboxPublicKey)}`,
+        `Your inbox key: ${this.me.inboxPublicKey}`,
+        `As a link: ${buildIdentityLink(this.me.inboxPublicKey)}`,
         '',
-        'Give it to someone who uses Onym: they can add you to a chat from their app. '
+        'Give it to someone who uses Onym: they add you to a chat in Create group, Invite by Inbox Key. '
         + 'To join a group yourself, paste its join link (https://onym.app/join?c=…) here.',
       ].join('\n'));
     }

@@ -2441,6 +2441,8 @@ export interface LangPair {
   'OnymInviteLinkDesc': undefined;
   'OnymCopyLink': undefined;
   'OnymLinkCopied': undefined;
+  'OnymCopyKey': undefined;
+  'OnymKeyCopied': undefined;
   'OnymShowPhrase': undefined;
   'OnymHidePhrase': undefined;
   'OnymRecoveryPhraseDesc': undefined;
