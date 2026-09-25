@@ -1,7 +1,7 @@
 {
-    "name": "Telegram Web",
-    "short_name": "Telegram Web",
-    "description": "Telegram is a cloud-based mobile and desktop messaging app with a focus on security and speed.",
+    "name": "Onymgram",
+    "short_name": "Onymgram",
+    "description": "An independent interface to the Onym network on Telegram Web A: end-to-end encrypted chats over Nostr, with keys that stay with you.",
     "start_url": "./",
     "gcm_sender_id": "122867383838",
     "icons": [
