@@ -12,6 +12,7 @@ import {
   ARCHIVED_FOLDER_ID,
   BETA_CHANGELOG_URL,
   FEEDBACK_URL,
+  HAS_TELEGRAM_SERVICES,
   IS_BETA,
   IS_TEST,
   PRODUCTION_HOSTNAME,
@@ -162,7 +163,7 @@ const LeftSideMenuItems = ({
 
   return (
     <>
-      {IS_MULTIACCOUNT_SUPPORTED && currentUser && (
+      {HAS_TELEGRAM_SERVICES && IS_MULTIACCOUNT_SUPPORTED && currentUser && (
         <>
           <AccountMenuItems
             currentUser={currentUser}
@@ -178,12 +179,14 @@ const LeftSideMenuItems = ({
       >
         {lang('MenuMyProfile')}
       </MenuItem>
-      <MenuItem
-        icon="saved-messages"
-        onClick={handleSelectSaved}
-      >
-        {lang('MenuSavedMessages')}
-      </MenuItem>
+      {HAS_TELEGRAM_SERVICES && (
+        <MenuItem
+          icon="saved-messages"
+          onClick={handleSelectSaved}
+        >
+          {lang('MenuSavedMessages')}
+        </MenuItem>
+      )}
       {archiveSettings.isHidden && (
         <MenuItem
           icon="archive"
@@ -195,12 +198,14 @@ const LeftSideMenuItems = ({
           )}
         </MenuItem>
       )}
-      <MenuItem
-        icon="group"
-        onClick={onSelectContacts}
-      >
-        {lang('MenuContacts')}
-      </MenuItem>
+      {HAS_TELEGRAM_SERVICES && (
+        <MenuItem
+          icon="group"
+          onClick={onSelectContacts}
+        >
+          {lang('MenuContacts')}
+        </MenuItem>
+      )}
       {bots.map((bot) => (
         <AttachBotItem
           bot={bot}
@@ -241,20 +246,24 @@ const LeftSideMenuItems = ({
               <span className="menu-item-name capitalize">{lang('MenuUIFeaturesSwitch')}</span>
               <Toggle value={animationLevelValue} />
             </MenuItem>
-            <MenuSeparator />
-            <MenuItem
-              icon="help"
-              onClick={handleOpenTipsChat}
-            >
-              {lang('MenuTelegramFeatures')}
-            </MenuItem>
-            <MenuItem
-              icon="bug"
-              onClick={handleBugReportClick}
-            >
-              {lang('MenuReportBug')}
-            </MenuItem>
-            {IS_BETA && (
+            {HAS_TELEGRAM_SERVICES && (
+              <>
+                <MenuSeparator />
+                <MenuItem
+                  icon="help"
+                  onClick={handleOpenTipsChat}
+                >
+                  {lang('MenuTelegramFeatures')}
+                </MenuItem>
+                <MenuItem
+                  icon="bug"
+                  onClick={handleBugReportClick}
+                >
+                  {lang('MenuReportBug')}
+                </MenuItem>
+              </>
+            )}
+            {HAS_TELEGRAM_SERVICES && IS_BETA && (
               <MenuItem
                 icon="permissions"
                 onClick={handleChangelogClick}
@@ -262,7 +271,7 @@ const LeftSideMenuItems = ({
                 {lang('MenuBetaChangelog')}
               </MenuItem>
             )}
-            {withOtherVersions && (
+            {HAS_TELEGRAM_SERVICES && withOtherVersions && (
               <MenuItem
                 icon="K"
                 isCharIcon

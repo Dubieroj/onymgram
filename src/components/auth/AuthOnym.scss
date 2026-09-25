@@ -1,0 +1,33 @@
+#auth-onym-form {
+  overflow-y: auto;
+  height: 100%;
+
+  #logo {
+    background: url("../../assets/onym-logo.svg") center no-repeat;
+    background-size: 100%;
+  }
+
+  .Button {
+    margin-top: 1rem;
+  }
+
+  .Checkbox {
+    margin-top: 1.5rem;
+    text-align: left;
+  }
+}
+
+.onym-phrase {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem 1rem;
+
+  margin: 0;
+  padding: 1rem 1rem 1rem 2.5rem;
+  border-radius: var(--border-radius-default-small);
+
+  font-family: var(--font-family-monospace);
+  text-align: left;
+
+  background: var(--color-background-secondary);
+}

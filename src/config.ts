@@ -20,6 +20,8 @@ export const IS_MOCKED_CLIENT = import.meta.env.TG_APP_MOCKED_CLIENT === '1';
 export const IS_TEST = APP_ENV === 'test';
 export const IS_PERF = APP_ENV === 'perf';
 export const IS_BETA = APP_ENV === 'staging';
+// This build talks to the Onym network only: surfaces that need Telegram's own servers stay hidden
+export const HAS_TELEGRAM_SERVICES = false;
 
 export const PAID_MESSAGES_PURPOSE = 'paid_messages';
 
@@ -48,7 +50,8 @@ export const SESSION_LEGACY_USER_KEY = 'user_auth';
 export const SESSION_ACCOUNT_PREFIX = 'account';
 
 export const MULTIACCOUNT_MAX_SLOTS = 6;
-export const GLOBAL_STATE_CACHE_DISABLED = false;
+// Chats and messages stay only in the Onym worker's sealed store, not in a plaintext UI cache (Interface.md §8)
+export const GLOBAL_STATE_CACHE_DISABLED = true;
 export const GLOBAL_STATE_CACHE_PREFIX = 'tt-global-state';
 export const SHARED_STATE_CACHE_KEY = 'tt-shared-state';
 export const GLOBAL_STATE_CACHE_USER_LIST_LIMIT = 500;

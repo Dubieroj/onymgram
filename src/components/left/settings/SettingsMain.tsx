@@ -4,7 +4,9 @@ import { getActions, withGlobal } from '../../../global';
 import type { ApiStarsAmount, ApiTonAmount } from '../../../api/types';
 import { SettingsScreens } from '../../../types';
 
-import { FAQ_URL, PRIVACY_URL, TON_CURRENCY_CODE } from '../../../config';
+import {
+  FAQ_URL, HAS_TELEGRAM_SERVICES, PRIVACY_URL, TON_CURRENCY_CODE,
+} from '../../../config';
 import { formatStarsAmount } from '../../../global/helpers/payments';
 import {
   selectIsGiveawayGiftsPurchaseAvailable,
@@ -102,6 +104,18 @@ const SettingsMain = ({
       <div className={styles.menuSection}>
         <Island>
           <ListItem
+            icon="key-filled"
+            iconBg="blue"
+            multiline
+            narrow
+            onClick={() => openSettingsScreen({ screen: SettingsScreens.Onym })}
+          >
+            <span className="title">{lang('OnymIdentity')}</span>
+            <span className="subtitle">{lang('OnymIdentityDesc')}</span>
+          </ListItem>
+        </Island>
+        <Island>
+          <ListItem
             icon="account-filled"
             iconBg="blue"
             multiline
@@ -134,16 +148,18 @@ const SettingsMain = ({
             <span className="subtitle">{lang('SettingsNotificationsDesc')}</span>
           </ListItem>
 
-          <ListItem
-            icon="lock-filled"
-            iconBg="gray"
-            multiline
-            narrow
-            onClick={() => openSettingsScreen({ screen: SettingsScreens.Privacy })}
-          >
-            <span className="title">{lang('PrivacySettings')}</span>
-            <span className="subtitle">{lang('SettingsPrivacyDesc')}</span>
-          </ListItem>
+          {HAS_TELEGRAM_SERVICES && (
+            <ListItem
+              icon="lock-filled"
+              iconBg="gray"
+              multiline
+              narrow
+              onClick={() => openSettingsScreen({ screen: SettingsScreens.Privacy })}
+            >
+              <span className="title">{lang('PrivacySettings')}</span>
+              <span className="subtitle">{lang('SettingsPrivacyDesc')}</span>
+            </ListItem>
+          )}
 
           <ListItem
             icon="piechart-filled"
@@ -156,16 +172,18 @@ const SettingsMain = ({
             <span className="subtitle">{lang('SettingsDataDesc')}</span>
           </ListItem>
 
-          <ListItem
-            icon="folder-filled"
-            iconBg="blue"
-            multiline
-            narrow
-            onClick={() => openSettingsScreen({ screen: SettingsScreens.Folders })}
-          >
-            <span className="title">{lang('Filters')}</span>
-            <span className="subtitle">{lang('SettingsFoldersDesc')}</span>
-          </ListItem>
+          {HAS_TELEGRAM_SERVICES && (
+            <ListItem
+              icon="folder-filled"
+              iconBg="blue"
+              multiline
+              narrow
+              onClick={() => openSettingsScreen({ screen: SettingsScreens.Folders })}
+            >
+              <span className="title">{lang('Filters')}</span>
+              <span className="subtitle">{lang('SettingsFoldersDesc')}</span>
+            </ListItem>
+          )}
 
           <ListItem
             icon="animations-filled"
@@ -178,16 +196,18 @@ const SettingsMain = ({
             <span className="subtitle">{lang('SettingsPerformanceDesc')}</span>
           </ListItem>
 
-          <ListItem
-            icon="smile-filled"
-            iconBg="pink"
-            multiline
-            narrow
-            onClick={() => openSettingsScreen({ screen: SettingsScreens.Stickers })}
-          >
-            <span className="title">{lang('MenuStickers')}</span>
-            <span className="subtitle">{lang('SettingsStickersDesc')}</span>
-          </ListItem>
+          {HAS_TELEGRAM_SERVICES && (
+            <ListItem
+              icon="smile-filled"
+              iconBg="pink"
+              multiline
+              narrow
+              onClick={() => openSettingsScreen({ screen: SettingsScreens.Stickers })}
+            >
+              <span className="title">{lang('MenuStickers')}</span>
+              <span className="subtitle">{lang('SettingsStickersDesc')}</span>
+            </ListItem>
+          )}
 
           <ListItem
             icon="web-filled"
@@ -202,106 +222,112 @@ const SettingsMain = ({
             </span>
           </ListItem>
 
-          <ListItem
-            icon="devices-filled"
-            iconBg="blue"
-            multiline
-            narrow
-            rightElement={sessionCount > 0
-              ? <span className="settings-item__current-value">{sessionCount}</span>
-              : undefined}
-            onClick={() => openSettingsScreen({ screen: SettingsScreens.ActiveSessions })}
-          >
-            <span className="title">{lang('SessionsTitle')}</span>
-            <span className="subtitle">{lang('SettingsSessionsDesc')}</span>
-          </ListItem>
-        </Island>
-
-        <Island>
-          {canBuyPremium && (
+          {HAS_TELEGRAM_SERVICES && (
             <ListItem
-              icon="star"
-              iconBg="premium"
+              icon="devices-filled"
+              iconBg="blue"
+              multiline
               narrow
-              onClick={() => openPremiumModal()}
+              rightElement={sessionCount > 0
+                ? <span className="settings-item__current-value">{sessionCount}</span>
+                : undefined}
+              onClick={() => openSettingsScreen({ screen: SettingsScreens.ActiveSessions })}
             >
-              {lang('TelegramPremium')}
-            </ListItem>
-          )}
-
-          <ListItem
-            icon="stars-filled"
-            iconBg="orange"
-            narrow
-            onClick={() => openStarsBalanceModal({})}
-          >
-            {lang('MenuStars')}
-            {Boolean(starsBalance) && (
-              <span className="settings-item__current-value">
-                {formatStarsAsIcon(lang, formatStarsAmount(lang, starsBalance), {
-                  asFont: true,
-                  withIconLast: true,
-                  className: styles.balanceStar,
-                })}
-              </span>
-            )}
-          </ListItem>
-
-          <ListItem
-            icon="gram-filled"
-            iconBg="blue"
-            narrow
-            onClick={() => openStarsBalanceModal({ currency: TON_CURRENCY_CODE })}
-          >
-            {lang('MenuGram')}
-            {Boolean(tonBalance) && (
-              <span className="settings-item__current-value">
-                {formatTonAsIcon(lang, convertCurrencyFromBaseUnit(tonBalance.amount, tonBalance.currency), {
-                  withIconLast: true,
-                  className: styles.balanceGem,
-                })}
-              </span>
-            )}
-          </ListItem>
-
-          {isGiveawayAvailable && (
-            <ListItem
-              icon="gift-filled"
-              iconBg="orange"
-              narrow
-              onClick={() => openGiftRecipientPicker()}
-            >
-              {lang('MenuSendGift')}
+              <span className="title">{lang('SessionsTitle')}</span>
+              <span className="subtitle">{lang('SettingsSessionsDesc')}</span>
             </ListItem>
           )}
         </Island>
 
-        <Island>
-          <ListItem
-            icon="support-filled"
-            iconBg="red"
-            narrow
-            onClick={openSupportDialog}
-          >
-            {lang('AskAQuestion')}
-          </ListItem>
-          <ListItem
-            icon="help-filled"
-            iconBg="blue"
-            narrow
-            onClick={() => openUrl({ url: FAQ_URL })}
-          >
-            {lang('MenuTelegramFaq')}
-          </ListItem>
-          <ListItem
-            icon="privacy-policy-filled"
-            iconBg="green"
-            narrow
-            onClick={() => openUrl({ url: PRIVACY_URL })}
-          >
-            {lang('MenuPrivacyPolicy')}
-          </ListItem>
-        </Island>
+        {HAS_TELEGRAM_SERVICES && (
+          <>
+            <Island>
+              {canBuyPremium && (
+                <ListItem
+                  icon="star"
+                  iconBg="premium"
+                  narrow
+                  onClick={() => openPremiumModal()}
+                >
+                  {lang('TelegramPremium')}
+                </ListItem>
+              )}
+
+              <ListItem
+                icon="stars-filled"
+                iconBg="orange"
+                narrow
+                onClick={() => openStarsBalanceModal({})}
+              >
+                {lang('MenuStars')}
+                {Boolean(starsBalance) && (
+                  <span className="settings-item__current-value">
+                    {formatStarsAsIcon(lang, formatStarsAmount(lang, starsBalance), {
+                      asFont: true,
+                      withIconLast: true,
+                      className: styles.balanceStar,
+                    })}
+                  </span>
+                )}
+              </ListItem>
+
+              <ListItem
+                icon="gram-filled"
+                iconBg="blue"
+                narrow
+                onClick={() => openStarsBalanceModal({ currency: TON_CURRENCY_CODE })}
+              >
+                {lang('MenuGram')}
+                {Boolean(tonBalance) && (
+                  <span className="settings-item__current-value">
+                    {formatTonAsIcon(lang, convertCurrencyFromBaseUnit(tonBalance.amount, tonBalance.currency), {
+                      withIconLast: true,
+                      className: styles.balanceGem,
+                    })}
+                  </span>
+                )}
+              </ListItem>
+
+              {isGiveawayAvailable && (
+                <ListItem
+                  icon="gift-filled"
+                  iconBg="orange"
+                  narrow
+                  onClick={() => openGiftRecipientPicker()}
+                >
+                  {lang('MenuSendGift')}
+                </ListItem>
+              )}
+            </Island>
+
+            <Island>
+              <ListItem
+                icon="support-filled"
+                iconBg="red"
+                narrow
+                onClick={openSupportDialog}
+              >
+                {lang('AskAQuestion')}
+              </ListItem>
+              <ListItem
+                icon="help-filled"
+                iconBg="blue"
+                narrow
+                onClick={() => openUrl({ url: FAQ_URL })}
+              >
+                {lang('MenuTelegramFaq')}
+              </ListItem>
+              <ListItem
+                icon="privacy-policy-filled"
+                iconBg="green"
+                narrow
+                onClick={() => openUrl({ url: PRIVACY_URL })}
+              >
+                {lang('MenuPrivacyPolicy')}
+              </ListItem>
+            </Island>
+          </>
+        )}
       </div>
       <ConfirmDialog
         isOpen={isSupportDialogOpen}

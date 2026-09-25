@@ -2,6 +2,7 @@ import { getGlobal } from '../global';
 
 import type { ApiOldLangPack, ApiOldLangString } from '../api/types';
 import type { LangCode, TimeFormat } from '../types';
+import type { RegularLangKey } from '../types/language';
 
 import {
   LANG_CACHE_NAME, LANG_PACKS,
@@ -10,7 +11,7 @@ import { selectSharedSettings } from '../global/selectors/sharedState';
 import { callApi } from '../api/gramjs';
 import * as cacheApi from './cacheApi';
 import { createCallbackManager } from './callbacks';
-import { loadAndChangeLanguage } from './localization';
+import { getTranslationFn as getBundledTranslationFn, loadAndChangeLanguage } from './localization';
 import { formatInteger } from './textFormat';
 
 const FALLBACK_LANG_CODE = 'en';
@@ -131,7 +132,9 @@ function createLangFn() {
 
     const langString = langPack?.[key];
     if (!langString) {
-      return key;
+      // The legacy packs come from Telegram's servers, which this build never contacts: plain strings fall back to
+      // the bundled English strings of the current localization
+      return value === undefined ? getBundledTranslationFn()(key as RegularLangKey) : key;
     }
 
     return processTranslation(langString, key, value, format, pluralValue);

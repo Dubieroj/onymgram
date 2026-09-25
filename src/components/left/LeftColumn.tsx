@@ -191,6 +191,7 @@ function LeftColumn({
         case SettingsScreens.Privacy:
         case SettingsScreens.Performance:
         case SettingsScreens.ActiveSessions:
+        case SettingsScreens.Onym:
         case SettingsScreens.Language:
         case SettingsScreens.Stickers:
         case SettingsScreens.Experimental:

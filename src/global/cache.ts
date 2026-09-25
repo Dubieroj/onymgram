@@ -174,7 +174,7 @@ export async function loadCache(initialState: GlobalState): Promise<GlobalState 
 }
 
 export function setupCaching() {
-  if (isCaching) return;
+  if (isCaching || GLOBAL_STATE_CACHE_DISABLED) return;
 
   isCaching = true;
   unsubscribeFromBeforeUnload = onBeforeUnload(updateCacheForced, true);
@@ -473,7 +473,7 @@ export function temporarilySuspendCacheUpdate() {
 }
 
 export function forceUpdateCache() {
-  if (Date.now() < cacheUpdateSuspensionTimestamp) {
+  if (GLOBAL_STATE_CACHE_DISABLED || Date.now() < cacheUpdateSuspensionTimestamp) {
     return;
   }
 

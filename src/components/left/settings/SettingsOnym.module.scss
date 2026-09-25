@@ -1,0 +1,47 @@
+@use "../../../styles/mixins";
+
+.root {
+  overflow-y: auto;
+  height: calc(100% - var(--column-header-height));
+  padding: 1rem;
+  background-color: var(--color-background-secondary);
+
+  @include mixins.adapt-padding-to-scrollbar(1rem);
+}
+
+.qr {
+  display: flex;
+  justify-content: center;
+  margin: 0.5rem 0;
+}
+
+.link {
+  margin: 0 1rem 0.75rem;
+
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+  word-break: break-all;
+}
+
+.button {
+  width: calc(100% - 2rem);
+  margin: 0 auto 1rem;
+}
+
+.phrase {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem 1rem;
+
+  margin: 0.5rem 1rem 1rem;
+  padding-left: 1.5rem;
+
+  font-family: var(--font-family-monospace);
+}
+
+.key {
+  font-family: var(--font-family-monospace);
+  font-size: 0.75rem;
+  word-break: break-all;
+}

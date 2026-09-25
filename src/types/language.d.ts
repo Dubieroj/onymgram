@@ -2425,6 +2425,32 @@ export interface LangPair {
   'RichButtonCenter': undefined;
   'RichButtonRight': undefined;
   'RichEditorButtonCopyText': undefined;
+  'OnymLoginNote': undefined;
+  'OnymCreateIdentity': undefined;
+  'OnymEnterPhrase': undefined;
+  'OnymWriteDownPhrase': undefined;
+  'OnymPhraseSaved': undefined;
+  'OnymEnterPhraseNote': undefined;
+  'OnymRecoveryPhrase': undefined;
+  'OnymPhraseProblemLength': undefined;
+  'OnymPhraseProblemWord': undefined;
+  'OnymPhraseProblemChecksum': undefined;
+  'OnymIdentity': undefined;
+  'OnymIdentityDesc': undefined;
+  'OnymInviteLinkTitle': undefined;
+  'OnymInviteLinkDesc': undefined;
+  'OnymCopyLink': undefined;
+  'OnymLinkCopied': undefined;
+  'OnymShowPhrase': undefined;
+  'OnymHidePhrase': undefined;
+  'OnymRecoveryPhraseDesc': undefined;
+  'OnymRelays': undefined;
+  'OnymDefaultRelay': undefined;
+  'OnymRelaysDesc': undefined;
+  'OnymPublicKeys': undefined;
+  'OnymStellarAccount': undefined;
+  'OnymMemberKey': undefined;
+  'OnymAboutInterface': undefined;
 }
 
 export interface LangPairWithVariables<V = LangVariable> {
