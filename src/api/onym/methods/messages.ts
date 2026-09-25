@@ -30,9 +30,10 @@ const LOCAL_PHOTO_ID = 'temp';
 const GIF_MIME_TYPE = 'image/gif';
 
 const HELP_TEXT = [
-  'Paste a join link (https://onym.app/join?c=…) to ask to join a group.',
-  'Creating groups and inviting people need the group admin to anchor the group on Stellar with a PLONK proof, '
-  + 'which this interface cannot do yet: ask a friend with the Onym app to create the group and invite you.',
+  'This chat only understands join links.',
+  'To get into a group, paste its join link here (https://onym.app/join?c=…), or give your inbox key to someone '
+  + 'with the Onym app so they can invite you. Your key and its QR code are under My Profile.',
+  'Groups are created in the Onym app: this interface cannot create them yet.',
 ].join('\n\n');
 
 export function buildLastMessages(current: Session) {
@@ -243,7 +244,7 @@ function handleSystemCommand(current: Session, text: string) {
   }
 
   if (text.split(/\s+/).some((word) => parseIdentityLink(word))) {
-    current.messenger.addNotice(`That is someone's invite link. ${HELP_TEXT}`);
+    current.messenger.addNotice(`That link is someone's inbox key: it lets them be invited, not you.\n\n${HELP_TEXT}`);
     return;
   }
 
