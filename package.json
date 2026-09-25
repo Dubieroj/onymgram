@@ -1,5 +1,5 @@
 {
-  "name": "telegram-t",
+  "name": "onymgram",
   "version": "12.0.44",
   "description": "",
   "author": "Alexander Zinchuk (alexander@zinchuk.com)",
@@ -109,6 +109,8 @@
   },
   "dependencies": {
     "@cryptography/aes": "^0.1.1",
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-notification": "^2.3.3",
     "@tauri-apps/plugin-process": "^2.3.1",
