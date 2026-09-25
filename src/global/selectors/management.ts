@@ -1,7 +1,7 @@
 import type { ApiChat } from '../../api/types';
 import type { GlobalState, TabArgs } from '../types';
 
-import { SERVICE_NOTIFICATIONS_USER_ID } from '../../config';
+import { HAS_TELEGRAM_SERVICES, SERVICE_NOTIFICATIONS_USER_ID } from '../../config';
 import { isUserId } from '../../util/entities/ids';
 import { getCurrentTabId } from '../../util/establishMultitabRole';
 import {
@@ -79,6 +79,9 @@ export function selectCanManage<T extends GlobalState>(
   if (!chat || isRestricted || chat.isMonoforum) return false;
 
   const isPrivate = isUserId(chat.id);
+  // Onym has no contacts to edit
+  if (isPrivate && !HAS_TELEGRAM_SERVICES) return false;
+
   const user = isPrivate ? selectUser(global, chatId) : undefined;
   const canAddContact = user && getCanAddContact(user);
 
@@ -97,6 +100,9 @@ export function selectCanManageAutoDelete<T extends GlobalState>(
   global: T,
   chatId: string,
 ) {
+  // Onym carries no auto-delete timers
+  if (!HAS_TELEGRAM_SERVICES) return false;
+
   const chat = selectChat(global, chatId);
   if (!chat || selectIsChatRestricted(global, chatId) || chat.isMonoforum) return false;
 

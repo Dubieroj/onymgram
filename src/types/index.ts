@@ -298,6 +298,8 @@ export enum SettingsScreens {
   FoldersShare,
   Passkeys,
   Onym,
+  OnymRelays,
+  OnymBlossom,
 }
 
 export type StickerSetOrReactionsSetOrRecent = Pick<ApiStickerSet, (

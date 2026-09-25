@@ -7,7 +7,7 @@ import type { IAnchorPosition, MessageListType, ThreadId, TranslationTone } from
 import { MAIN_THREAD_ID } from '../../api/types';
 import { ManagementScreens } from '../../types';
 
-import { COCOON_EMOJI_ID } from '../../config';
+import { COCOON_EMOJI_ID, HAS_TELEGRAM_SERVICES } from '../../config';
 import { requestMeasure, requestNextMutation } from '../../lib/fasterdom/fasterdom';
 import {
   getHasAdminRight,
@@ -473,7 +473,8 @@ export default memo(withGlobal<OwnProps>(
     const canCall = ARE_CALLS_SUPPORTED && isUserId(chat.id) && !isChatWithSelf && !bot && !chat.isSupport
       && !isAnonymousForwardsChat(chat.id);
     const canMute = isMainThread && !isChatWithSelf && !canSubscribe;
-    const canLeave = isSavedDialog || (isMainThread && !canSubscribe);
+    // Onymgram cannot leave an Onym group or delete a chat on the network
+    const canLeave = HAS_TELEGRAM_SERVICES && (isSavedDialog || (isMainThread && !canSubscribe));
     const canEnterVoiceChat = ARE_CALLS_SUPPORTED && isMainThread && chat.isCallActive;
     const canCreateVoiceChat = ARE_CALLS_SUPPORTED && isMainThread && !chat.isCallActive
       && getHasAdminRight(chat, 'manageCall') && !chat.isMonoforum;

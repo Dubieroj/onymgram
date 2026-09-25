@@ -29,8 +29,6 @@ type OnymIdentity = {
   inboxKey: string;
   stellarAccount: string;
   blsPublicKey: string;
-  relays: string[];
-  defaultRelays: string[];
 };
 
 const QR_SIZE = 240;
@@ -112,17 +110,6 @@ const SettingsOnym = ({ isActive, onReset }: OwnProps) => {
         )}
       </Island>
       <IslandDescription>{lang('OnymRecoveryPhraseDesc')}</IslandDescription>
-
-      <Island>
-        <IslandTitle>{lang('OnymRelays')}</IslandTitle>
-        {identity?.relays.map((relay) => (
-          <ListItem key={relay} icon="link" narrow inactive multiline>
-            <span className="title">{relay}</span>
-            {identity.defaultRelays.includes(relay) && <span className="subtitle">{lang('OnymDefaultRelay')}</span>}
-          </ListItem>
-        ))}
-      </Island>
-      <IslandDescription>{lang('OnymRelaysDesc')}</IslandDescription>
 
       <Island>
         <IslandTitle>{lang('OnymPublicKeys')}</IslandTitle>

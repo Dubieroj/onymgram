@@ -99,6 +99,10 @@ const SettingsHeader: FC<OwnProps> = ({
         return <h3>{lang('AutoDeleteMessages')}</h3>;
       case SettingsScreens.Onym:
         return <h3>{lang('OnymIdentity')}</h3>;
+      case SettingsScreens.OnymRelays:
+        return <h3>{lang('OnymNostrRelays')}</h3>;
+      case SettingsScreens.OnymBlossom:
+        return <h3>{lang('OnymBlossomServers')}</h3>;
       case SettingsScreens.Language:
         return <h3>{oldLang('Language')}</h3>;
       case SettingsScreens.DoNotTranslate:

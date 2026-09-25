@@ -9,13 +9,11 @@ import { sendApiUpdate } from '../gramjs/updates/apiUpdateEmitter';
 import { getIdentityPublic } from './core/identity';
 import { RelayPool } from './core/relayPool';
 import { Messenger } from './messenger';
+import { getSettings, loadSettings } from './settings';
 import {
   buildGroupChat, buildGroupMessage, buildMemberUsers, buildNoticeMessage, buildSelfUser, getChatIdOfGroup,
   getUserIdOfMember, SYSTEM_CHAT_ID,
 } from './telegram';
-
-// Onym's reference courier, labelled as the default and replaceable in place (Interface.md §4.2)
-export const DEFAULT_RELAYS = ['wss://nostr.onym.app'];
 
 export type Session = {
   secrets: IdentitySecrets;
@@ -53,12 +51,15 @@ export async function openSession({ secrets, firstName, lastName }: {
     secrets, identity, firstName, lastName, pool, selfUserId, messenger: undefined!,
   };
   const displayName = () => [current.firstName, current.lastName].filter(Boolean).join(' ') || 'Onym user';
-  current.messenger = new Messenger(secrets, identity, displayName, pool, {
+  const sendsReadReceipts = () => getSettings().sendsReadReceipts;
+  current.messenger = new Messenger(secrets, identity, displayName, sendsReadReceipts, pool, {
     onGroup: (group, isNew) => emitGroup(current, group, isNew),
     onMessage: (message, isNew) => emitMessage(current, message, isNew),
+    onMessagesCleared: (groupId, seqs) => emitMessagesCleared(current, groupId, seqs),
     onNotice: (notice, isNew) => emitNotice(current, notice, isNew),
     onOffer: (offer) => emitOffer(current, offer),
   });
+  await loadSettings();
   session = current;
 
   await current.messenger.load();
@@ -66,7 +67,7 @@ export async function openSession({ secrets, firstName, lastName }: {
     getChatIdOfGroup(group.id);
     Object.keys(group.memberProfiles).forEach(getUserIdOfMember);
   });
-  pool.setRelays(DEFAULT_RELAYS);
+  pool.setRelays(getSettings().relays);
   pool.connectAll();
   current.messenger.start();
 
@@ -110,12 +111,17 @@ function emitGroup(current: Session, group: Group, isNew: boolean) {
       threadInfo: { isCommentsInfo: false, chatId: getChatIdOfGroup(group.id), threadId: MAIN_THREAD_ID },
     });
   }
+  const readState = buildReadState(group, current.messenger.getMessages(group.id));
   sendApiUpdate({
     '@type': 'updateChat',
     id: getChatIdOfGroup(group.id),
     chat: buildGroupChat(group),
-    readState: buildReadState(group, current.messenger.getMessages(group.id)),
+    readState,
     noTopChatsRequest: !isNew,
+  });
+  // `updateChat` leaves the thread's read state alone, so the ticks of messages others have read change only here
+  sendApiUpdate({
+    '@type': 'updateThreadReadState', chatId: getChatIdOfGroup(group.id), threadId: MAIN_THREAD_ID, readState,
   });
 }
 
@@ -134,6 +140,14 @@ function emitMessage(current: Session, message: Message, isNew: boolean) {
       '@type': 'updateMessage', chatId: apiMessage.chatId, id: apiMessage.id, message: apiMessage, isFull: true,
     });
   }
+}
+
+function emitMessagesCleared(current: Session, groupId: string, seqs: number[]) {
+  if (session !== current) return;
+  const chatId = getChatIdOfGroup(groupId);
+  sendApiUpdate({ '@type': 'deleteMessages', ids: seqs, chatId });
+  const group = current.messenger.getGroup(groupId);
+  if (group) emitGroup(current, group, false);
 }
 
 function emitNotice(current: Session, notice: Notice, isNew: boolean) {

@@ -40,6 +40,14 @@
   font-family: var(--font-family-monospace);
 }
 
+.addServer {
+  margin: 0.5rem 1rem 0;
+}
+
+.server {
+  word-break: break-all;
+}
+
 .key {
   font-family: var(--font-family-monospace);
   font-size: 0.75rem;

@@ -5,6 +5,7 @@ import { ApiMediaFormat } from '../../types';
 import { decryptBlob, downloadEncryptedBlob, pickServer } from '../core/blossom';
 import { fromBase64 } from '../core/bytes';
 import { getSession } from '../session';
+import { getSettings } from '../settings';
 import { getGroupIdByChatId } from '../telegram';
 
 // Serves the UI's media requests from the Onym network: `photo<sha256>` is an encrypted Blossom blob named in a
@@ -41,7 +42,7 @@ async function loadPhoto(current: Session, hash: string) {
   if (!attachment) return undefined;
 
   try {
-    const blob = await downloadEncryptedBlob(pickServer(attachment.server), hash);
+    const blob = await downloadEncryptedBlob(pickServer(attachment.server, getSettings().blossomServers), hash);
     return await decryptBlob(blob, attachment.encryptionKey);
   } catch {
     return undefined;

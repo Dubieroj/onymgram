@@ -27,7 +27,7 @@ import type {
 import type { ClipboardTextFormat, MessageCopyRequest } from '../../../types/messageCopy';
 import { MAIN_THREAD_ID } from '../../../api/types';
 
-import { PREVIEW_AVATAR_COUNT } from '../../../config';
+import { HAS_TELEGRAM_SERVICES, PREVIEW_AVATAR_COUNT } from '../../../config';
 import {
   areReactionsEmpty,
   getCanPostInChat,
@@ -965,7 +965,9 @@ export default memo(withGlobal<OwnProps>(
 
     const isLocal = isMessageLocal(message);
     const hasTtl = hasMessageTtl(message);
-    const canShowSeenBy = Boolean(!isLocal
+    // Onym's read receipts mark messages read, but name no reader
+    const canShowSeenBy = Boolean(HAS_TELEGRAM_SERVICES
+      && !isLocal
       && chat
       && !chat.isMonoforum
       && !isMessageUnread

@@ -4,10 +4,13 @@ export { provideAuthRegistration, restartAuth } from './auth';
 
 export { fetchCurrentUser, fetchFullUser } from './users';
 
-export { fetchChat, fetchChats, fetchFullChat } from './chats';
+export {
+  fetchChat, fetchChats, fetchFullChat, updateChatNotifySettings,
+} from './chats';
 
 export {
-  fetchMessage, fetchMessages, fetchMessagesById, markMessageListRead, searchMessagesInChat, sendMessage,
+  fetchMessage, fetchMessages, fetchMessagesById, findFirstMessageIdAfterDate, markMessageListRead,
+  searchMessagesInChat, sendMessage,
 } from './messages';
 
 export { answerCallbackButton } from './bots';

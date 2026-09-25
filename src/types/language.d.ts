@@ -2446,14 +2446,36 @@ export interface LangPair {
   'OnymShowPhrase': undefined;
   'OnymHidePhrase': undefined;
   'OnymRecoveryPhraseDesc': undefined;
-  'OnymRelays': undefined;
   'OnymDefaultRelay': undefined;
-  'OnymRelaysDesc': undefined;
   'OnymPublicKeys': undefined;
   'OnymStellarAccount': undefined;
   'OnymMemberKey': undefined;
   'OnymAboutInterface': undefined;
   'InputAttachPopoverPhoto': undefined;
+  'OnymTransport': undefined;
+  'OnymNostrRelays': undefined;
+  'OnymNostrRelaysDesc': undefined;
+  'OnymBlossomServers': undefined;
+  'OnymBlossomServersDesc': undefined;
+  'OnymTransportNote': undefined;
+  'OnymData': undefined;
+  'OnymSendReadReceipts': undefined;
+  'OnymSendReadReceiptsDesc': undefined;
+  'OnymClearCache': undefined;
+  'OnymClearCacheDesc': undefined;
+  'OnymClearCacheConfirm': undefined;
+  'OnymClearCacheAction': undefined;
+  'OnymDataNote': undefined;
+  'OnymRemove': undefined;
+  'OnymAddServer': undefined;
+  'OnymRestoreDefaults': undefined;
+  'OnymRelayPlaceholder': undefined;
+  'OnymBlossomPlaceholder': undefined;
+  'OnymRelayInvalid': undefined;
+  'OnymBlossomInvalid': undefined;
+  'OnymRelaysNote': undefined;
+  'OnymBlossomNote': undefined;
+  'OnymNoDirectMessages': undefined;
 }
 
 export interface LangPairWithVariables<V = LangVariable> {

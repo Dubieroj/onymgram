@@ -39,8 +39,10 @@ which the UI already treats as "not available".
 | A Founder (Tyranny) group | A Telegram group; the admin shows as *Owner* |
 | A member's self-chosen alias | A user; the card says the name is not verified |
 | Invitations, join requests, status | The **Onymgram** service chat, with Join / Decline buttons |
-| Delivered / read receipts | One or two ticks |
+| Delivered / read receipts | One or two ticks; Settings → Data turns read receipts off both ways, as the app does |
 | An encrypted Blossom image | A photo |
+| Nostr relays, Blossom servers | Settings → Transport: Onym's own servers, labelled as defaults, in lists you can replace |
+| No direct messages | A member's chat shows who they are, with a note in place of the composer |
 
 ## Protocol support
 
@@ -74,8 +76,10 @@ join request, and messages went both ways over `wss://nostr.onym.app`. The admin
 - **The chain anchor is not checked.** An invitation must be signed by its admin and its roster must
   reproduce its own commitment, but the commitment is not compared with the Stellar contract. The group
   info panel says so.
-- **Text and incoming photos only.** Sending photos, video, voice and albums is not implemented; received
-  video, voice and albums show as a placeholder.
+- **Text and photos only.** Video, voice and albums are not sent; received ones show as a placeholder.
+- **Only what Onym carries is offered.** Calls, channels, contacts, forwarding, editing, deleting, pinning
+  and reports are hidden. A mute stays in this browser, and clearing the message cache deletes messages
+  here only.
 - **Browser storage.** Identity and chats are AES-GCM-sealed in IndexedDB under a non-extractable key that
   this browser generated, and Telegram Web A's own plaintext state cache is switched off. That keeps them
   from casual reading of the disk, not from code running in the page.
@@ -119,7 +123,9 @@ Copy the link from Settings → Onym identity, press **Join** in the Onymgram ch
 | `src/api/onym/telegram.ts`, `methods/` | The mapping to Telegram's `Api*` objects and `callApi` methods |
 | `src/api/onym/worker.ts`, `init.ts` | The worker the UI now starts in place of GramJS's |
 | `src/components/auth/AuthOnym.tsx` | Sign-in with a phrase |
-| `src/components/left/settings/SettingsOnym.tsx` | Invite link and QR, recovery phrase, relays, keys |
+| `src/api/onym/settings.ts` | Relay and server lists, read receipts, mutes, sealed with the rest |
+| `src/components/left/settings/SettingsOnym.tsx` | Invite link and QR, recovery phrase, keys |
+| `src/components/left/settings/SettingsOnymServers.tsx` | The relay and Blossom server lists |
 | `dev/onym/simulate-admin.ts` | The admin-side simulator above |
 
 ## License

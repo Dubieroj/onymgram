@@ -103,6 +103,11 @@ const LeftSideMenuItems = ({
   const bots = useMemo(() => Object.values(attachBots).filter((bot) => bot.isForSideMenu), [attachBots]);
 
   const handleSelectMyProfile = useLastCallback(() => {
+    // Under Onym a profile is its identity: the inbox key and link others invite by
+    if (!HAS_TELEGRAM_SERVICES) {
+      openSettingsScreen({ screen: SettingsScreens.Onym });
+      return;
+    }
     openChatWithInfo({ id: currentUserId, shouldReplaceHistory: true, isOwnProfile: true });
   });
 

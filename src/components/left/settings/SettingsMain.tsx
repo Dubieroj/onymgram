@@ -1,4 +1,4 @@
-import { memo, useEffect } from '../../../lib/teact/teact';
+import { memo, useEffect, useState } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
 import type { ApiStarsAmount, ApiTonAmount } from '../../../api/types';
@@ -15,6 +15,7 @@ import {
 import buildClassName from '../../../util/buildClassName';
 import { convertCurrencyFromBaseUnit } from '../../../util/formatCurrency';
 import { formatStarsAsIcon, formatTonAsIcon } from '../../../util/localization/format';
+import { callApi } from '../../../api/gramjs';
 
 import useFlag from '../../../hooks/useFlag';
 import useHistoryBack from '../../../hooks/useHistoryBack';
@@ -23,9 +24,10 @@ import useLastCallback from '../../../hooks/useLastCallback';
 
 import ChatExtra from '../../common/profile/ChatExtra';
 import ProfileInfo from '../../common/profile/ProfileInfo';
-import Island from '../../gili/layout/Island';
+import Island, { IslandDescription, IslandTitle } from '../../gili/layout/Island';
 import ConfirmDialog from '../../ui/ConfirmDialog';
 import ListItem from '../../ui/ListItem';
+import Switcher from '../../ui/Switcher';
 
 import styles from './SettingsMain.module.scss';
 
@@ -64,6 +66,8 @@ const SettingsMain = ({
   } = getActions();
 
   const [isSupportDialogOpen, openSupportDialog, closeSupportDialog] = useFlag(false);
+  const [isClearDialogOpen, openClearDialog, closeClearDialog] = useFlag(false);
+  const [sendsReadReceipts, setSendsReadReceipts] = useState(true);
 
   const lang = useLang();
 
@@ -76,6 +80,23 @@ const SettingsMain = ({
   useHistoryBack({
     isActive,
     onBack: onReset,
+  });
+
+  useEffect(() => {
+    if (!isActive) return;
+    void callApi('fetchOnymSettings').then((settings) => {
+      if (settings) setSendsReadReceipts(settings.sendsReadReceipts);
+    });
+  }, [isActive]);
+
+  const handleReadReceipts = useLastCallback((isEnabled: boolean) => {
+    setSendsReadReceipts(isEnabled);
+    void callApi('setOnymReadReceipts', isEnabled);
+  });
+
+  const handleClearCache = useLastCallback(() => {
+    closeClearDialog();
+    void callApi('clearOnymMessages');
   });
 
   const handleOpenSupport = useLastCallback(() => {
@@ -114,6 +135,58 @@ const SettingsMain = ({
             <span className="subtitle">{lang('OnymIdentityDesc')}</span>
           </ListItem>
         </Island>
+        <IslandTitle>{lang('OnymTransport')}</IslandTitle>
+        <Island>
+          <ListItem
+            icon="link"
+            iconBg="purple"
+            multiline
+            narrow
+            onClick={() => openSettingsScreen({ screen: SettingsScreens.OnymRelays })}
+          >
+            <span className="title">{lang('OnymNostrRelays')}</span>
+            <span className="subtitle">{lang('OnymNostrRelaysDesc')}</span>
+          </ListItem>
+          <ListItem
+            icon="photo"
+            iconBg="blue"
+            multiline
+            narrow
+            onClick={() => openSettingsScreen({ screen: SettingsScreens.OnymBlossom })}
+          >
+            <span className="title">{lang('OnymBlossomServers')}</span>
+            <span className="subtitle">{lang('OnymBlossomServersDesc')}</span>
+          </ListItem>
+        </Island>
+        <IslandDescription>{lang('OnymTransportNote')}</IslandDescription>
+        <IslandTitle>{lang('OnymData')}</IslandTitle>
+        <Island>
+          <ListItem
+            icon="message-read"
+            iconBg="purple"
+            multiline
+            narrow
+            rightElement={(
+              <Switcher label={lang('OnymSendReadReceipts')} checked={sendsReadReceipts} />
+            )}
+            onClick={() => handleReadReceipts(!sendsReadReceipts)}
+          >
+            <span className="title">{lang('OnymSendReadReceipts')}</span>
+            <span className="subtitle">{lang('OnymSendReadReceiptsDesc')}</span>
+          </ListItem>
+          <ListItem
+            icon="delete"
+            iconBg="red"
+            multiline
+            narrow
+            destructive
+            onClick={openClearDialog}
+          >
+            <span className="title">{lang('OnymClearCache')}</span>
+            <span className="subtitle">{lang('OnymClearCacheDesc')}</span>
+          </ListItem>
+        </Island>
+        <IslandDescription>{lang('OnymDataNote')}</IslandDescription>
         <Island>
           <ListItem
             icon="account-filled"
@@ -329,6 +402,15 @@ const SettingsMain = ({
           </>
         )}
       </div>
+      <ConfirmDialog
+        isOpen={isClearDialogOpen}
+        title={lang('OnymClearCache')}
+        text={lang('OnymClearCacheConfirm')}
+        confirmLabel={lang('OnymClearCacheAction')}
+        confirmIsDestructive
+        confirmHandler={handleClearCache}
+        onClose={closeClearDialog}
+      />
       <ConfirmDialog
         isOpen={isSupportDialogOpen}
         confirmLabel={lang('OK')}

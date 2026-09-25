@@ -189,10 +189,10 @@ function buildLocalPhoto({ blobUrl, previewBlobUrl, quick }: ApiAttachment) {
 // Shared media and in-chat search run over the messages this interface holds: photos for the media tab, text for a
 // query; the other Telegram media kinds never occur on the Onym network
 export function searchMessagesInChat({
-  peer, type, query, offsetId, limit,
+  peer, type, query, offsetId, limit, fromPeer,
 }: {
   peer: ApiPeer; type?: ApiMessageSearchType | ApiGlobalMessageSearchType; query?: string; offsetId?: number;
-  limit: number;
+  limit: number; fromPeer?: ApiPeer;
 }) {
   const current = getSession();
   if (!current) return Promise.resolve(undefined);
@@ -201,6 +201,7 @@ export function searchMessagesInChat({
   const matches = listChatMessages(current, peer.id)
     .filter(({ content }) => (type === 'media' ? Boolean(content.photo) : !type || type === 'text'))
     .filter(({ content }) => !needle || Boolean(content.text?.text.toLowerCase().includes(needle)))
+    .filter(({ senderId }) => !fromPeer || senderId === fromPeer.id)
     .sort((a, b) => b.id - a.id);
   const page = matches.filter(({ id }) => !offsetId || id < offsetId).slice(0, limit);
 
@@ -211,6 +212,14 @@ export function searchMessagesInChat({
     totalCount: matches.length,
     nextOffsetId: page.length === limit ? page[page.length - 1].id : undefined,
   });
+}
+
+// The calendar's jump: the first message sent on or after the chosen moment
+export function findFirstMessageIdAfterDate({ chat, timestamp }: { chat: ApiChat; timestamp: number }) {
+  const current = getSession();
+  if (!current) return Promise.resolve(undefined);
+
+  return Promise.resolve(listChatMessages(current, chat.id).find(({ date }) => date >= timestamp)?.id);
 }
 
 export function markMessageListRead({ chat, maxId = 0 }: { chat: ApiChat; threadId: ThreadId; maxId?: number }) {

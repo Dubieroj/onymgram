@@ -1,7 +1,8 @@
 import type { ImageAttachment } from './core/payloads';
 
-import { DEFAULT_BLOSSOM_SERVERS, encryptBlob, uploadBlob } from './core/blossom';
+import { encryptBlob, uploadBlob } from './core/blossom';
 import { encodeBlurhash } from './core/blurhash';
+import { getSettings } from './settings';
 
 // The composer has already scaled the photo to a JPEG; this measures it, draws its BlurHash from a small sample,
 // encrypts it and uploads the ciphertext, returning the descriptor that travels inside the sealed message
@@ -23,7 +24,7 @@ export async function uploadPhoto(photo: Blob): Promise<ImageAttachment> {
 
   const mimeType = JPEG_MAGIC.every((byte, i) => bytes[i] === byte) ? 'image/jpeg' : photo.type || 'image/jpeg';
   const { blob, hash, keyHex } = await encryptBlob(bytes);
-  const server = DEFAULT_BLOSSOM_SERVERS[0];
+  const [server] = getSettings().blossomServers;
   await uploadBlob(server, blob, hash, mimeType);
 
   return {

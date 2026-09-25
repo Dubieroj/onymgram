@@ -5,8 +5,10 @@ import { getActions } from '../../global';
 import { LeftColumnContent, SettingsScreens } from '../../types';
 
 import {
+  APP_CODE_NAME,
   APP_NAME,
   DEBUG,
+  HAS_TELEGRAM_SERVICES,
   IS_BETA,
 } from '../../config';
 import buildClassName from '../../util/buildClassName';
@@ -37,6 +39,10 @@ const LeftSideMenuDropdown = ({
   const lang = useLang();
 
   const versionString = IS_BETA ? `${APP_VERSION} Beta (${APP_REVISION})` : (DEBUG ? APP_REVISION : APP_VERSION);
+  // Onymgram names the Telegram Web A release it is built on
+  const footer = HAS_TELEGRAM_SERVICES
+    ? `${APP_NAME} ${versionString}`
+    : `${APP_NAME} · Telegram Web ${APP_CODE_NAME} ${versionString}`;
 
   // Disable dropdown menu RTL animation for resize
   const {
@@ -81,7 +87,7 @@ const LeftSideMenuDropdown = ({
         onSelectSettings={handleSelectSettings}
         onBotMenuOpened={markBotMenuOpen}
         onBotMenuClosed={unmarkBotMenuOpen}
-        footer={`${APP_NAME} ${versionString}`}
+        footer={footer}
       />
     </DropdownMenu>
   );

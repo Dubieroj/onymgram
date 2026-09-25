@@ -10,7 +10,7 @@ import type { IAnchorPosition, ThreadId } from '../../types';
 import type { IconName } from '../../types/icons';
 import { MAIN_THREAD_ID } from '../../api/types';
 
-import { UNMUTE_TIMESTAMP } from '../../config';
+import { HAS_TELEGRAM_SERVICES, UNMUTE_TIMESTAMP } from '../../config';
 import {
   getCanAddContact,
   getCanDeleteChat,
@@ -880,7 +880,7 @@ const HeaderMenuContainer = ({
               {isBlocked ? oldLang('BotRestart') : oldLang('Bot.Stop')}
             </MenuItem>
           )}
-          {isPrivate && !isChatWithSelf && !isBot && (
+          {HAS_TELEGRAM_SERVICES && isPrivate && !isChatWithSelf && !isBot && (
             <MenuItem
               icon={noForwardsMyEnabled || noForwardsPeerEnabled ? 'allow-share' : 'no-share'}
               onClick={handleToggleNoForwards}
@@ -888,7 +888,7 @@ const HeaderMenuContainer = ({
               {noForwardsMyEnabled || noForwardsPeerEnabled ? lang('EnableSharing') : lang('DisableSharing')}
             </MenuItem>
           )}
-          {isPrivate && !isChatWithSelf && !isBot && (
+          {HAS_TELEGRAM_SERVICES && isPrivate && !isChatWithSelf && !isBot && (
             <MenuItem
               icon={isBlocked ? 'user' : 'hand-stop'}
               onClick={isBlocked ? handleUnblock : handleBlock}
@@ -955,7 +955,8 @@ export default memo(withGlobal<OwnProps>(
     const isMainThread = threadId === MAIN_THREAD_ID;
     const isChatWithSelf = selectIsChatWithSelf(global, chatId);
     const { chatId: currentChatId, threadId: currentThreadId } = selectCurrentMessageList(global) || {};
-    const canReportChat = isMainThread && !user && (isChatChannel(chat) || isChatGroup(chat)) && !isChatAdmin(chat);
+    const canReportChat = HAS_TELEGRAM_SERVICES && isMainThread && !user
+      && (isChatChannel(chat) || isChatGroup(chat)) && !isChatAdmin(chat);
 
     const chatBot = !isSystemBot(chatId) ? selectBot(global, chatId) : undefined;
     const userFullInfo = isPrivate ? selectUserFullInfo(global, chatId) : undefined;

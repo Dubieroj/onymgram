@@ -8,7 +8,7 @@ import { getActions } from '../../../global';
 import type { FolderEditDispatch } from '../../../hooks/reducers/useFoldersReducer';
 import { LeftColumnContent } from '../../../types';
 
-import { DEBUG } from '../../../config';
+import { DEBUG, HAS_TELEGRAM_SERVICES } from '../../../config';
 import { selectCommunityPanelId } from '../../../global/selectors';
 import { IS_TAURI } from '../../../util/browser/globalEnvironment';
 import { IS_TOUCH_ENV } from '../../../util/browser/windowEnvironment';
@@ -271,13 +271,16 @@ const LeftMain: FC<OwnProps> = ({
           onCloseAnimationEnd={handleForumPanelAnimationEnd}
         />
       )}
-      <NewChatButton
-        isShown={isNewChatButtonShown}
-        onNewPrivateChat={handleSelectContacts}
-        onNewChannel={handleSelectNewChannel}
-        onNewGroup={handleSelectNewGroup}
-        isAccountFrozen={isAccountFrozen}
-      />
+      {/* Onym has no channels or direct chats, and its groups are created and anchored in the Onym apps */}
+      {HAS_TELEGRAM_SERVICES && (
+        <NewChatButton
+          isShown={isNewChatButtonShown}
+          onNewPrivateChat={handleSelectContacts}
+          onNewChannel={handleSelectNewChannel}
+          onNewGroup={handleSelectNewGroup}
+          isAccountFrozen={isAccountFrozen}
+        />
+      )}
     </div>
   );
 };

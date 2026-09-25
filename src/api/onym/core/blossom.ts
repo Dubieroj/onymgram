@@ -20,7 +20,7 @@ const AUTH_CONTENT = 'Upload chat image';
 
 // A stamped server is used only if it is one of ours (onym-ios `BlossomServerStampPolicy`): a message cannot make
 // this client fetch from an address its sender chose
-export function pickServer(stamped: string | undefined, servers = DEFAULT_BLOSSOM_SERVERS) {
+export function pickServer(stamped: string | undefined, servers: string[]) {
   const normalized = stamped?.replace(/\/+$/, '');
   return normalized && servers.includes(normalized) ? normalized : servers[0];
 }
@@ -28,7 +28,8 @@ export function pickServer(stamped: string | undefined, servers = DEFAULT_BLOSSO
 export async function downloadEncryptedBlob(server: string, hash: string) {
   if (!/^[0-9a-f]{64}$/.test(hash)) throw new Error('Invalid blob hash');
 
-  const response = await fetch(`${server}/${hash}`);
+  // A listed server may not hand the request on to a host that is not listed
+  const response = await fetch(`${server}/${hash}`, { redirect: 'error' });
   if (!response.ok) throw new Error(`Blossom answered ${response.status}`);
   const bytes = new Uint8Array(await response.arrayBuffer());
   if (bytes.length > MAX_BLOB_BYTES) throw new Error('Blob too large');
@@ -63,6 +64,7 @@ export async function uploadBlob(server: string, blob: Uint8Array, hash: string,
   const auth = signWithEphemeralKey(AUTH_KIND, tags, AUTH_CONTENT);
   const response = await fetch(`${server}/upload`, {
     method: 'PUT',
+    redirect: 'error',
     headers: { Authorization: `Nostr ${toBase64(utf8(JSON.stringify(auth)))}`, 'Content-Type': mimeType },
     body: blob.slice().buffer,
   });

@@ -13,6 +13,8 @@ import {
   EDITABLE_INPUT_CSS_SELECTOR,
   EDITABLE_INPUT_ID,
   GENERAL_TOPIC_ID,
+  HAS_TELEGRAM_SERVICES,
+  SERVICE_NOTIFICATIONS_USER_ID,
   SUPPORTED_PHOTO_CONTENT_TYPES,
   SUPPORTED_VIDEO_CONTENT_TYPES,
   TMP_CHAT_ID,
@@ -490,11 +492,14 @@ function MiddleColumn({
     oldLang, chat, threadId, topics, Boolean(draftReplyInfo),
   );
 
+  const isOnymDirectChat = !HAS_TELEGRAM_SERVICES && isPrivate && chatId !== SERVICE_NOTIFICATIONS_USER_ID;
+
   const composerRestrictionMessage = messageSendingRestrictionReason
     || forumComposerPlaceholder
     || (shouldBlockSendInMonoforum ? lang('MonoforumComposerPlaceholder') : undefined)
     || (isContactRequirePremium ? <PremiumRequiredPlaceholder userId={chatId!} /> : undefined)
-    || (isAccountFrozen && freezeAppealChat?.id !== chatId ? <FrozenAccountPlaceholder /> : undefined);
+    || (isAccountFrozen && freezeAppealChat?.id !== chatId ? <FrozenAccountPlaceholder /> : undefined)
+    || (isOnymDirectChat ? lang('OnymNoDirectMessages') : undefined);
 
   useHistoryBack({
     isActive: isSelectModeActive,

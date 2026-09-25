@@ -48,6 +48,8 @@ export type Group = {
   isCommitmentConsistent?: boolean;
   lastReadInboxSeq: number;
   lastReadOutboxSeq: number;
+  // Highest message number handed out, kept when local messages are cleared so numbers never repeat
+  lastSeq?: number;
 };
 
 export type Offer = {
@@ -92,6 +94,8 @@ type State = {
   notices: Notice[];
   parked: Record<string, Parked[]>;
   processedEvents: string[];
+  // Ids of the group messages the user cleared, kept so that a relay still holding them cannot bring them back
+  cleared?: Record<string, string[]>;
   lastReadNoticeSeq?: number;
   hasWelcomed?: boolean;
 };
@@ -99,6 +103,7 @@ type State = {
 export type MessengerListener = {
   onGroup: (group: Group, isNew: boolean) => void;
   onMessage: (message: Message, isNew: boolean) => void;
+  onMessagesCleared: (groupId: string, seqs: number[]) => void;
   onNotice: (notice: Notice, isNew: boolean) => void;
   onOffer: (offer: Offer) => void;
 };
@@ -120,6 +125,7 @@ export class Messenger {
     private secrets: IdentitySecrets,
     private me: IdentityPublic,
     private displayName: () => string,
+    private sendsReadReceipts: () => boolean,
     private pool: RelayPool,
     private listener: MessengerListener,
   ) {}
@@ -224,6 +230,24 @@ export class Messenger {
     this.scheduleSave();
   }
 
+  // Deletes every group message held here and keeps the chats. Their ids stay behind, so a relay that still holds
+  // the messages cannot bring them back
+  async clearMessages() {
+    const clearedMessages = this.state.messages;
+    this.state.messages = {};
+    this.state.parked = {};
+    Object.entries(clearedMessages).forEach(([groupId, messages]) => {
+      const group = this.state.groups[groupId];
+      if (group) group.lastSeq = Math.max(group.lastSeq || 0, messages[messages.length - 1]?.seq || 0);
+      this.state.cleared = {
+        ...this.state.cleared,
+        [groupId]: [...(this.state.cleared?.[groupId] || []), ...messages.map(({ logicalId }) => logicalId)],
+      };
+      this.listener.onMessagesCleared(groupId, messages.map(({ seq }) => seq));
+    });
+    await this.flush();
+  }
+
   addOutgoingNotice(text: string) {
     return this.addNotice(text, undefined, true);
   }
@@ -274,7 +298,7 @@ export class Messenger {
     return this.findMessage(groupId, message.logicalId)!;
   }
 
-  // Read receipts go to each sender whose messages the user has now seen
+  // Read receipts go to each sender whose messages the user has now seen, unless the user turned them off
   async markRead(groupId: string, maxSeq: number) {
     const group = this.state.groups[groupId];
     if (!group || maxSeq <= group.lastReadInboxSeq) return;
@@ -282,6 +306,7 @@ export class Messenger {
     const newlyRead = this.getMessages(groupId)
       .filter((message) => !message.isOutgoing && message.seq > group.lastReadInboxSeq && message.seq <= maxSeq);
     this.updateGroup({ ...group, lastReadInboxSeq: maxSeq });
+    if (!this.sendsReadReceipts()) return;
 
     const bySender = new Map<string, string[]>();
     newlyRead.forEach((message) => {
@@ -310,7 +335,6 @@ export class Messenger {
 
   private async handleInbound({ event, payload }: Inbound) {
     if (this.processed.has(event.id)) return;
-    this.rememberProcessed(event.id);
 
     let opened: OpenedEnvelope;
     try {
@@ -318,6 +342,8 @@ export class Messenger {
     } catch {
       return;
     }
+    // Only an envelope that opens is remembered, so events anyone can publish to the inbox cannot push real ones out
+    this.rememberProcessed(event.id);
     this.dispatch(opened.plaintext, opened.verifiedSender, getEventTimeMs(event));
   }
 
@@ -435,6 +461,7 @@ export class Messenger {
       isCommitmentConsistent,
       lastReadInboxSeq: existing?.lastReadInboxSeq || 0,
       lastReadOutboxSeq: existing?.lastReadOutboxSeq || 0,
+      lastSeq: existing?.lastSeq,
     };
     this.updateGroup(group, !existing);
 
@@ -484,6 +511,9 @@ export class Messenger {
     const profile = group?.memberProfiles[receipt.senderBlsPublicKey];
     if (!group || !profile || profile.sendingPublicKey !== verifiedSender) return;
 
+    // Read status is mutual, as in the Onym apps: with receipts off, others' reads are not shown either
+    if (receipt.kind === 'read' && !this.sendsReadReceipts()) return;
+
     const ids = new Set(receipt.messageIds);
     let maxReadSeq = group.lastReadOutboxSeq;
     this.getMessages(group.id).forEach((message) => {
@@ -522,6 +552,7 @@ export class Messenger {
     if (message.variantKind !== SUPPORTED_GROUP_TYPE) return;
     if (message.senderBlsPublicKey === this.me.blsPublicKey) return;
     if (this.findMessage(group.id, message.messageId)) return;
+    if (this.state.cleared?.[group.id]?.includes(message.messageId)) return;
 
     this.insertMessage({
       logicalId: message.messageId,
@@ -568,8 +599,10 @@ export class Messenger {
 
   private insertMessage(message: Omit<Message, 'seq'>) {
     const list = this.state.messages[message.groupId] || [];
-    const inserted: Message = { ...message, seq: (list[list.length - 1]?.seq || 0) + 1 };
+    const group = this.state.groups[message.groupId];
+    const inserted: Message = { ...message, seq: Math.max(list[list.length - 1]?.seq || 0, group?.lastSeq || 0) + 1 };
     this.state.messages[message.groupId] = [...list, inserted];
+    if (group) group.lastSeq = inserted.seq;
     this.scheduleSave();
     this.listener.onMessage(inserted, true);
     return inserted;

@@ -14,6 +14,8 @@ import { createCallbackManager } from './callbacks';
 import { getTranslationFn as getBundledTranslationFn, loadAndChangeLanguage } from './localization';
 import { formatInteger } from './textFormat';
 
+import LEGACY_STRINGS from '../assets/localization/legacyStrings';
+
 const FALLBACK_LANG_CODE = 'en';
 
 export interface LangFn {
@@ -130,7 +132,7 @@ function createLangFn() {
       }
     }
 
-    const langString = langPack?.[key];
+    const langString = langPack?.[key] ?? LEGACY_STRINGS[key];
     if (!langString) {
       // The legacy packs come from Telegram's servers, which this build never contacts: plain strings fall back to
       // the bundled English strings, where dotted legacy keys live without their dots

@@ -25,6 +25,7 @@ import { ApiMessageEntityTypes, MAIN_THREAD_ID } from '../../api/types';
 
 import {
   GENERAL_TOPIC_ID,
+  HAS_TELEGRAM_SERVICES,
   SERVICE_NOTIFICATIONS_USER_ID,
 } from '../../config';
 import { IS_TRANSLATION_SUPPORTED } from '../../util/browser/windowEnvironment';
@@ -528,7 +529,8 @@ export function selectCanReplyToMessage<T extends GlobalState>(global: T, messag
 }
 
 export function selectCanForwardMessage<T extends GlobalState>(global: T, message: ApiMessage) {
-  if (message.anchorMsgId) return false;
+  // Onym carries no forwards
+  if (!HAS_TELEGRAM_SERVICES || message.anchorMsgId) return false;
 
   const isLocal = isMessageLocal(message);
   const isServiceNotification = isServiceNotificationMessage(message);
@@ -637,7 +639,9 @@ export function selectAllowedMessageActionsSlow<T extends GlobalState>(
   const canReplyGlobally = canReply || (!isSavedDialog && !isLocal && !isServiceNotification
     && (isSuperGroup || isBasicGroup || isChatChannel(chat)));
 
-  let canPin = !isLocal && !isServiceNotification && !isAction && canPinMessage && !isSavedDialog;
+  // Onym carries no pins, edits, reports or deletions: under it only a failed local message can be removed
+  let canPin = HAS_TELEGRAM_SERVICES && !isLocal && !isServiceNotification && !isAction && canPinMessage
+    && !isSavedDialog;
   let canUnpin = false;
 
   const pinnedMessageIds = selectPinnedIds(global, chat.id, threadId);
@@ -650,14 +654,15 @@ export function selectAllowedMessageActionsSlow<T extends GlobalState>(
   const canNotDeleteBoostMessage = isBoostMessage && isOwn
     && !getHasAdminRight(chat, 'deleteMessages');
 
-  const canDelete = (!isLocal || isFailed) && !isServiceNotification && !canNotDeleteBoostMessage && (
+  const isDeletable = HAS_TELEGRAM_SERVICES ? !isLocal || isFailed : isFailed;
+  const canDelete = isDeletable && !isServiceNotification && !canNotDeleteBoostMessage && (
     isPrivate
     || isOwn
     || isBasicGroup
     || getHasAdminRight(chat, 'deleteMessages')
   );
 
-  const canReport = !isPrivate && !isOwn;
+  const canReport = HAS_TELEGRAM_SERVICES && !isPrivate && !isOwn;
 
   const canDeleteForAll = canDelete && !chat.isForbidden && (
     (isPrivate && !isChatWithSelf && !isBotChat && !content.dice)
@@ -668,7 +673,7 @@ export function selectAllowedMessageActionsSlow<T extends GlobalState>(
 
   const hasMessageEditRight = isOwn || (isChannel && getHasAdminRight(chat, 'editMessages'));
 
-  const canEdit = !isLocal && !isAction && isMessageEditable && hasMessageEditRight;
+  const canEdit = HAS_TELEGRAM_SERVICES && !isLocal && !isAction && isMessageEditable && hasMessageEditRight;
 
   const hasSticker = Boolean(message.content.sticker);
   const hasFavoriteSticker = hasSticker && selectIsStickerFavorite(global, message.content.sticker!);

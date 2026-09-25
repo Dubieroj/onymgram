@@ -33,6 +33,7 @@ import SettingsLanguage from './SettingsLanguage';
 import SettingsMain from './SettingsMain';
 import SettingsNotifications from './SettingsNotifications';
 import SettingsOnym from './SettingsOnym';
+import SettingsOnymServers from './SettingsOnymServers';
 import SettingsPasskeys from './SettingsPasskeys';
 import SettingsPerformance from './SettingsPerformance';
 import SettingsPrivacy from './SettingsPrivacy';
@@ -305,6 +306,14 @@ const Settings: FC<OwnProps> = ({
       case SettingsScreens.Onym:
         return (
           <SettingsOnym isActive={isScreenActive} onReset={handleReset} />
+        );
+      case SettingsScreens.OnymRelays:
+        return (
+          <SettingsOnymServers kind="relay" isActive={isScreenActive} onReset={handleReset} />
+        );
+      case SettingsScreens.OnymBlossom:
+        return (
+          <SettingsOnymServers kind="blossom" isActive={isScreenActive} onReset={handleReset} />
         );
       case SettingsScreens.Language:
         return (

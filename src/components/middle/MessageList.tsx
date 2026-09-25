@@ -12,6 +12,7 @@ import { LoadMoreDirection, type MessageListType, type ThreadId } from '../../ty
 import {
   ANIMATION_END_DELAY,
   ANONYMOUS_USER_ID,
+  HAS_TELEGRAM_SERVICES,
   IS_PERF,
   MESSAGE_LIST_SLICE,
   SCROLL_MAX_DURATION,
@@ -1277,7 +1278,9 @@ const MessageList = ({
   }, [isSelectModeActive]);
 
   const noAvatars = Boolean(!withUsers || (isChannelChat && !isChannelWithAvatars));
-  const shouldRenderGreeting = isUserId(chatId) && !isChatWithSelf && !isBot && !isAnonymousForwards
+  // The greeting sends a Telegram sticker to someone Onym gives no direct chat with
+  const shouldRenderGreeting = HAS_TELEGRAM_SERVICES && isUserId(chatId) && !isChatWithSelf && !isBot
+    && !isAnonymousForwards
     && type === 'thread'
     && (
       (

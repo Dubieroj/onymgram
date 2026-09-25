@@ -176,7 +176,8 @@ export function getCanPostInChat(
   }
 
   if (isUserId(chat.id)) {
-    return true;
+    // Onym has no direct messages: of the private chats, only this interface's service chat takes text
+    return HAS_TELEGRAM_SERVICES || chat.id === SERVICE_NOTIFICATIONS_USER_ID;
   }
 
   if (isChatChannel(chat)) {
