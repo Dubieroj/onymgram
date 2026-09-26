@@ -22,6 +22,7 @@ import type {
 import type { ActiveDownloads, SharedMediaType } from '../../types';
 import { ApiMediaFormat } from '../../api/types';
 
+import { HAS_TELEGRAM_SERVICES } from '../../config';
 import {
   IS_OPFS_SUPPORTED,
   IS_OPUS_SUPPORTED,
@@ -440,8 +441,8 @@ export function getMediaFormat(
   }
 
   if (isAudio || isVoice) {
-    // Safari versions that support Opus are not working with streaming
-    if (isVoice && (IS_SAFARI || !IS_OPUS_SUPPORTED)) {
+    // Safari versions that support Opus are not working with streaming; Onym voice clips are small and whole
+    if (isVoice && (IS_SAFARI || !IS_OPUS_SUPPORTED || !HAS_TELEGRAM_SERVICES)) {
       return ApiMediaFormat.BlobUrl;
     }
 

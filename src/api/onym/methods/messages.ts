@@ -1,14 +1,18 @@
 import type { ThreadId } from '../../../types';
 import type {
   ApiAttachment, ApiChat, ApiGlobalMessageSearchType, ApiMessage, ApiMessageSearchType, ApiOnProgress, ApiPeer,
+  ApiVoice,
 } from '../../types';
 import type { ImageAttachment } from '../core/payloads';
+import type { Message, OutgoingContent } from '../messenger';
 import type { Session } from '../session';
 
+import { decodeWaveform } from '../../../util/waveform';
 import { sendApiUpdate } from '../../gramjs/updates/apiUpdateEmitter';
 import { parseIdentityLink, parseJoinLink } from '../core/links';
-import { uploadPhoto } from '../photo';
-import { buildMessageForUi, buildNoticeForUi, getSession } from '../session';
+import { getMessageSpan } from '../messenger';
+import { uploadPhoto, uploadVoice } from '../photo';
+import { buildMessagesForUi, buildNoticeForUi, getSession } from '../session';
 import {
   buildNextLocalId, getChatIdOfGroup, getGroupIdByChatId, SYSTEM_CHAT_ID,
 } from '../telegram';
@@ -23,11 +27,27 @@ type SendParams = {
   gif?: unknown;
   poll?: unknown;
   contact?: unknown;
+  groupedId?: string;
   wasDrafted?: boolean;
 };
 
-const LOCAL_PHOTO_ID = 'temp';
+// The photos of an album arrive as one call each with the same `groupedId`, all before the first upload is done
+// (the UI does not wait between them), and leave as one Onym message, as GramJS gathers them into one request
+type PendingAlbum = {
+  count: number;
+  settled: number;
+  text: string;
+  replyTo?: string;
+  localIds: number[];
+  blobUrls: string[];
+  images: (ImageAttachment | undefined)[];
+};
+
+const LOCAL_MEDIA_ID = 'temp';
 const GIF_MIME_TYPE = 'image/gif';
+const VOICE_MIME_TYPE = 'audio/mp4';
+
+const pendingAlbums = new Map<string, PendingAlbum>();
 
 const HELP_TEXT = [
   'This chat only understands join links.',
@@ -51,8 +71,8 @@ export function buildLastMessages(current: Session) {
     const list = current.messenger.getMessages(groupId);
     const last = list[list.length - 1];
     if (!last) return;
-    messages.push(buildMessageForUi(current, last));
-    lastMessageByChatId[getChatIdOfGroup(groupId)] = last.seq;
+    messages.push(...buildMessagesForUi(current, last));
+    lastMessageByChatId[getChatIdOfGroup(groupId)] = last.seq + getMessageSpan(last) - 1;
   });
 
   return { messages, lastMessageByChatId };
@@ -90,35 +110,43 @@ export function fetchMessagesById({ chat, messageIds }: { chat: ApiChat; message
   return Promise.resolve(listChatMessages(current, chat.id).filter(({ id }) => ids.has(id)));
 }
 
-// The Onym network carries text and photos: anything else the composer offers is refused before it is shown as sent
+// The Onym network carries text, photos, albums of photos and voice clips: anything else the composer offers is
+// refused before it is shown as sent
 export async function sendMessage(params: SendParams, onProgress?: ApiOnProgress): Promise<void> {
   const current = getSession();
-  const { chat, text = '', attachment, wasDrafted } = params;
+  const {
+    chat, text = '', attachment, groupedId, wasDrafted,
+  } = params;
   if (!current || !chat) return;
 
-  const photo = attachment && isSendablePhoto(attachment) && chat.id !== SYSTEM_CHAT_ID ? attachment : undefined;
+  const isServiceChat = chat.id === SYSTEM_CHAT_ID;
+  const photo = attachment && !isServiceChat && isSendablePhoto(attachment) ? attachment : undefined;
+  const voice = attachment && !isServiceChat && isSendableVoice(attachment) ? attachment : undefined;
   const hasUnsupported = Boolean(
-    (attachment && !photo) || params.sticker || params.gif || params.poll || params.contact,
+    (attachment && !photo && !voice) || params.sticker || params.gif || params.poll || params.contact,
   );
-  if (hasUnsupported || (!text.trim() && !photo)) {
+  if (hasUnsupported || (!text.trim() && !photo && !voice)) {
     sendApiUpdate({
       '@type': 'error',
-      error: { message: 'Onym carries text and photos: this interface does not send other media.' },
+      error: { message: 'Onym carries text, photos and voice messages: this interface does not send other media.' },
     });
     return;
   }
 
+  const album = photo && groupedId ? joinAlbum(groupedId) : undefined;
   const localMessage: ApiMessage = {
     id: buildNextLocalId(params.lastMessageId),
     chatId: chat.id,
     date: Math.floor(Date.now() / 1000),
     isOutgoing: true,
     senderId: current.selfUserId,
-    content: photo ? { photo: buildLocalPhoto(photo), text: text ? { text } : undefined } : { text: { text } },
+    content: photo ? { photo: buildLocalPhoto(photo), text: text ? { text } : undefined }
+      : voice ? { voice: buildLocalVoice(voice) } : { text: { text } },
     sendingState: 'messageSendingStatePending',
     replyInfo: params.replyInfo?.type === 'message' && params.replyInfo.replyToMsgId
       ? { type: 'message', replyToMsgId: params.replyInfo.replyToMsgId }
       : undefined,
+    ...(album && { groupedId, isInAlbum: true }),
   };
 
   sendApiUpdate({
@@ -126,7 +154,7 @@ export async function sendMessage(params: SendParams, onProgress?: ApiOnProgress
   });
   onProgress?.(1);
 
-  if (chat.id === SYSTEM_CHAT_ID) {
+  if (isServiceChat) {
     const notice = current.messenger.addOutgoingNotice(text);
     sendApiUpdate({
       '@type': 'updateMessageSendSucceeded',
@@ -141,32 +169,99 @@ export async function sendMessage(params: SendParams, onProgress?: ApiOnProgress
   const groupId = getGroupIdByChatId(chat.id);
   if (!groupId) return;
 
-  const replyToSeq = localMessage.replyInfo?.type === 'message' ? localMessage.replyInfo.replyToMsgId : undefined;
-  const replyTo = replyToSeq
-    ? current.messenger.getMessages(groupId).find(({ seq }) => seq === replyToSeq)?.logicalId
-    : undefined;
+  const replyToId = localMessage.replyInfo?.type === 'message' ? localMessage.replyInfo.replyToMsgId : undefined;
+  const replyTo = replyToId ? findMessageById(current, groupId, replyToId)?.logicalId : undefined;
 
-  let image: ImageAttachment | undefined;
-  if (photo) {
-    try {
-      image = await uploadPhoto(await (await fetch(photo.blobUrl)).blob());
-    } catch (err) {
-      sendApiUpdate({
-        '@type': 'updateMessageSendFailed', chatId: chat.id, localId: localMessage.id, error: String(err),
-      });
-      return;
+  if (album) {
+    const index = album.count - 1;
+    album.localIds[index] = localMessage.id;
+    album.blobUrls[index] = photo!.blobUrl;
+    if (text) album.text = text;
+    if (replyTo) album.replyTo = replyTo;
+    album.images[index] = await uploadPhoto(await readBlob(photo!.blobUrl)).catch(() => undefined);
+    if (++album.settled === album.count) {
+      pendingAlbums.delete(groupedId!);
+      await sendAlbum(current, chat.id, groupId, album);
     }
+    return;
   }
 
-  const sent = await current.messenger.sendMessage(groupId, { text, replyTo, image });
-  const message = buildMessageForUi(current, sent);
+  let content: OutgoingContent;
+  try {
+    content = {
+      text,
+      replyTo,
+      image: photo && await uploadPhoto(await readBlob(photo.blobUrl)),
+      voice: voice && await uploadVoice(await readBlob(voice.blobUrl), voice.voice!.duration, voice.voice!.waveform),
+    };
+  } catch (err) {
+    sendApiUpdate({
+      '@type': 'updateMessageSendFailed', chatId: chat.id, localId: localMessage.id, error: String(err),
+    });
+    return;
+  }
+
+  const sent = await current.messenger.sendMessage(groupId, content);
+  const [message] = buildMessagesForUi(current, sent);
   if (message.content.photo && photo) {
     // Keep showing the local copy instead of fetching back the photo just uploaded
     message.content.photo.blobUrl = photo.blobUrl;
   }
+  if (voice && content.voice) rememberSentMedia(content.voice.sha256, await readBlob(voice.blobUrl));
   sendApiUpdate({
     '@type': 'updateMessageSendSucceeded', chatId: chat.id, localId: localMessage.id, message,
   });
+}
+
+function joinAlbum(groupedId: string) {
+  const album = pendingAlbums.get(groupedId) || {
+    count: 0, settled: 0, text: '', localIds: [], blobUrls: [], images: [],
+  };
+  album.count++;
+  pendingAlbums.set(groupedId, album);
+  return album;
+}
+
+// An album goes whole or not at all: a photo that failed to upload fails the others with it
+async function sendAlbum(current: Session, chatId: string, groupId: string, album: PendingAlbum) {
+  const images = album.images.filter((image): image is ImageAttachment => Boolean(image));
+  if (images.length !== album.count) {
+    album.localIds.forEach((localId) => sendApiUpdate({
+      '@type': 'updateMessageSendFailed', chatId, localId, error: 'A photo of the album did not upload',
+    }));
+    return;
+  }
+
+  const sent = await current.messenger.sendMessage(groupId, { text: album.text, replyTo: album.replyTo, images });
+  buildMessagesForUi(current, sent).forEach((message, i) => {
+    if (message.content.photo) message.content.photo.blobUrl = album.blobUrls[i];
+    sendApiUpdate({
+      '@type': 'updateMessageSendSucceeded', chatId, localId: album.localIds[i], message,
+    });
+  });
+}
+
+function findMessageById(current: Session, groupId: string, id: number): Message | undefined {
+  return current.messenger.getMessages(groupId).find((message) => (
+    id >= message.seq && id < message.seq + getMessageSpan(message)
+  ));
+}
+
+async function readBlob(blobUrl: string) {
+  return (await fetch(blobUrl)).blob();
+}
+
+// A clip this client just sent plays from memory instead of being fetched back from Blossom
+const sentMedia = new Map<string, Blob>();
+const SENT_MEDIA_LIMIT = 20;
+
+function rememberSentMedia(hash: string, blob: Blob) {
+  sentMedia.set(hash, blob);
+  if (sentMedia.size > SENT_MEDIA_LIMIT) sentMedia.delete(sentMedia.keys().next().value!);
+}
+
+export function getSentMedia(hash: string) {
+  return sentMedia.get(hash);
 }
 
 // Photos go as images; GIFs and anything chosen to go as a file do not
@@ -175,11 +270,26 @@ function isSendablePhoto(attachment: ApiAttachment) {
     && !attachment.shouldSendAsFile && Boolean(attachment.quick);
 }
 
+// A voice clip recorded as the apps record one; the recorder here writes AAC in MPEG-4 for the Onym network
+function isSendableVoice(attachment: ApiAttachment) {
+  return Boolean(attachment.voice) && attachment.mimeType === VOICE_MIME_TYPE;
+}
+
+function buildLocalVoice({ voice, size }: ApiAttachment): ApiVoice {
+  return {
+    mediaType: 'voice',
+    id: LOCAL_MEDIA_ID,
+    duration: voice!.duration,
+    waveform: Array.from(decodeWaveform(new Uint8Array(voice!.waveform))),
+    size,
+  };
+}
+
 function buildLocalPhoto({ blobUrl, previewBlobUrl, quick }: ApiAttachment) {
   const { width, height } = quick!;
   return {
     mediaType: 'photo' as const,
-    id: LOCAL_PHOTO_ID,
+    id: LOCAL_MEDIA_ID,
     sizes: [],
     thumbnail: { width, height, dataUri: previewBlobUrl || blobUrl },
     blobUrl,
@@ -258,5 +368,5 @@ function listChatMessages(current: Session, chatId: string): ApiMessage[] {
 
   const groupId = getGroupIdByChatId(chatId);
   if (!groupId) return [];
-  return current.messenger.getMessages(groupId).map((message) => buildMessageForUi(current, message));
+  return current.messenger.getMessages(groupId).flatMap((message) => buildMessagesForUi(current, message));
 }

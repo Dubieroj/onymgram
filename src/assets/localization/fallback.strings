@@ -3337,3 +3337,4 @@
 "OnymRelaysNote" = "Your sealed messages go to every relay on this list, and your inbox is read from all of them. Each relay sees when you send and how much, never what. At least one stays.";
 "OnymBlossomNote" = "Photos you send are encrypted, then uploaded to the first server here, whose address travels with each photo. Photos you receive are fetched only from servers on this list, whatever server a message names, and never through a redirect.";
 "OnymNoDirectMessages" = "Onym has no direct messages: write to this member in a group you share.";
+"OnymVoiceUnsupported" = "This browser cannot record voice messages in AAC, the format the Onym apps play. Try Chrome or Edge.";

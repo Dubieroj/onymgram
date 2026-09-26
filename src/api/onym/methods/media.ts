@@ -7,10 +7,14 @@ import { fromBase64 } from '../core/bytes';
 import { getSession } from '../session';
 import { getSettings } from '../settings';
 import { getGroupIdByChatId } from '../telegram';
+import { getSentMedia } from './messages';
 
-// Serves the UI's media requests from the Onym network: `photo<sha256>` is an encrypted Blossom blob named in a
-// message this client holds, `avatar<chatId>` / `profile<chatId>` a group photo carried in the group's state
-const MEDIA_URL_RE = /^(photo|avatar|profile)([-\w]+)/;
+// Serves the UI's media requests from the Onym network: `photo<sha256>` (a photo, alone or in an album) and
+// `document<sha256>` (a voice clip) are encrypted Blossom blobs named in a message this client holds,
+// `avatar<chatId>` / `profile<chatId>` a group photo carried in the group's state
+const MEDIA_URL_RE = /^(photo|document|avatar|profile)([-\w]+)/;
+
+type BlobDescriptor = { sha256: string; encryptionKey: string; mimeType: string; server?: string };
 
 export async function downloadMedia(
   { url, mediaFormat }: { url: string; mediaFormat: ApiMediaFormat; start?: number; end?: number },
@@ -21,11 +25,12 @@ export async function downloadMedia(
   if (!current || !match) return undefined;
 
   const [, kind, id] = match;
-  const bytes = kind === 'photo' ? await loadPhoto(current, id) : loadGroupAvatar(current, id);
+  const descriptor = kind === 'photo' || kind === 'document' ? findBlob(current, id) : undefined;
+  const bytes = descriptor ? await loadBlob(descriptor) : loadGroupAvatar(current, id);
   if (!bytes) return undefined;
   onProgress?.(1);
 
-  const mimeType = 'image/jpeg';
+  const mimeType = descriptor?.mimeType || 'image/jpeg';
   const isBlob = mediaFormat === ApiMediaFormat.BlobUrl;
   return {
     dataBlob: isBlob ? new Blob([bytes.slice().buffer], { type: mimeType }) : '',
@@ -35,15 +40,21 @@ export async function downloadMedia(
   };
 }
 
-async function loadPhoto(current: Session, hash: string) {
-  const attachment = Object.values(current.messenger.getState().messages)
-    .flat()
-    .find(({ image }) => image?.sha256 === hash)?.image;
-  if (!attachment) return undefined;
+function findBlob(current: Session, hash: string): BlobDescriptor | undefined {
+  for (const message of Object.values(current.messenger.getState().messages).flat()) {
+    const found = [message.image, ...(message.images || []), message.voice].find((blob) => blob?.sha256 === hash);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+async function loadBlob({ sha256: hash, encryptionKey, server }: BlobDescriptor) {
+  const sent = getSentMedia(hash);
+  if (sent) return new Uint8Array(await sent.arrayBuffer());
 
   try {
-    const blob = await downloadEncryptedBlob(pickServer(attachment.server, getSettings().blossomServers), hash);
-    return await decryptBlob(blob, attachment.encryptionKey);
+    const blob = await downloadEncryptedBlob(pickServer(server, getSettings().blossomServers), hash);
+    return await decryptBlob(blob, encryptionKey);
   } catch {
     return undefined;
   }

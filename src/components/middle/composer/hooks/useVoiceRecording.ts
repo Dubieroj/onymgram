@@ -34,6 +34,10 @@ const useVoiceRecording = () => {
         getActions().showNotification({ message: { key: 'VoiceRecordMicError' } });
         return;
       }
+      if (err instanceof DOMException && err.name === 'NotSupportedError') {
+        getActions().showNotification({ message: { key: 'OnymVoiceUnsupported' } });
+        return;
+      }
       // eslint-disable-next-line no-console
       console.error(err);
     }

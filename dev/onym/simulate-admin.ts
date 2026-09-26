@@ -3,12 +3,17 @@
 // interface end to end: offer → join request → invitation → chat both ways → receipts. It does not anchor anything
 // on Stellar (this interface does not read the chain yet), so it proves the messaging protocol, not the notary.
 //
-//   npx tsx dev/onym/simulate-admin.ts <invite link of the web user> [--photo image.jpg] [--relay wss://…]
+//   npx tsx dev/onym/simulate-admin.ts <invite link of the web user> [--photo image.jpg] [--album a.jpg,b.jpg]
+//     [--voice clip.m4a] [--save-media dir] [--relay wss://…]
+//
+// With --save-media, every photo, album photo and voice clip the web client sends is fetched from Blossom, checked
+// against its SHA-256 address and decrypted as the apps do (`ChatImageLoader`, `ChatVoiceLoader`), and written to
+// the directory for `sips` / `afinfo` to open with the same Apple decoders the iOS app uses
 import { bls12_381_Fr as Fr } from '@noble/curves/bls12-381.js';
 import { x25519 } from '@noble/curves/ed25519.js';
 import { schnorr } from '@noble/curves/secp256k1.js';
 import { sha256 } from '@noble/hashes/sha2.js';
-import { readFileSync } from 'fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 
 import { fromHex, toBase64, toHex, utf8 } from '../../src/api/onym/core/bytes';
 import { openEnvelope, sealEnvelope } from '../../src/api/onym/core/envelope';
@@ -31,6 +36,9 @@ const DEPTH = 5;
 const [link, ...options] = process.argv.slice(2);
 const relayUrl = readOption('--relay') || 'wss://nostr.onym.app';
 const photoPath = readOption('--photo');
+const albumPaths = readOption('--album')?.split(',');
+const voicePath = readOption('--voice');
+const mediaDir = readOption('--save-media');
 const BLOSSOM = 'https://blossom.onym.app';
 const joinerInbox = link && parseIdentityLink(link);
 if (!joinerInbox) {
@@ -74,6 +82,7 @@ socket.onmessage = async ({ data }) => {
   const payload = decodeInboundPayload(envelope.plaintext);
   if (payload?.type === 'message') {
     console.log(`← message from the web client: “${payload.body}” (${payload.messageId})`);
+    if (mediaDir) await saveMedia(payload);
     await send(joinerInbox, encodeReceipt({
       groupId, senderBlsPublicKey: adminPublic.blsPublicKey, kind: 'read', messageIds: [payload.messageId],
     }));
@@ -157,12 +166,13 @@ async function approveJoin(request: Record<string, string>, verifiedSender?: str
   console.log('→ chat message sent; waiting for a reply from the web client');
 
   if (photoPath) await sendPhoto(joinerInboxKey, photoPath);
+  if (albumPaths) await sendAlbum(joinerInboxKey, albumPaths);
+  if (voicePath) await sendVoice(joinerInboxKey, voicePath);
 }
 
-// As onym-ios `ChatImageCrypto` + `BlossomClient`: encrypt, upload under a kind-24242 authorization, then send the
-// descriptor with the key inside the sealed message
-async function sendPhoto(recipientInboxHex: string, path: string) {
-  const plain = readFileSync(path);
+// As onym-ios `ChatImageCrypto` + `BlossomClient`: encrypt, upload under a kind-24242 authorization; the descriptor
+// with the key then travels inside the sealed message
+async function uploadEncrypted(plain: Uint8Array, mimeType: string) {
   const keyBytes = crypto.getRandomValues(new Uint8Array(32));
   const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['encrypt']);
   const nonce = crypto.getRandomValues(new Uint8Array(12));
@@ -185,32 +195,100 @@ async function sendPhoto(recipientInboxHex: string, path: string) {
     method: 'PUT',
     headers: {
       Authorization: `Nostr ${Buffer.from(JSON.stringify(authEvent)).toString('base64')}`,
-      'Content-Type': 'image/jpeg',
+      'Content-Type': mimeType,
     },
     body: blob,
   });
-  console.log(`→ photo uploaded to Blossom: HTTP ${response.status} (${hash.slice(0, 16)}…)`);
+  console.log(`→ ${mimeType} uploaded to Blossom: HTTP ${response.status} (${hash.slice(0, 16)}…)`);
+  return {
+    sha256: hash, enc_key: toBase64(keyBytes), byte_size: blob.length, server: BLOSSOM,
+  };
+}
 
-  await send(recipientInboxHex, utf8(JSON.stringify({
+async function buildImage(path: string) {
+  return {
+    ...await uploadEncrypted(readFileSync(path), 'image/jpeg'),
+    mime_type: 'image/jpeg',
+    width: 160,
+    height: 120,
+    blurhash: 'LEHV6nWB2yk8pyo0adR*.7kCMdnj',
+  };
+}
+
+function buildMessage(body: string, media: Record<string, unknown>) {
+  return utf8(JSON.stringify({
     version: 1,
     message_id: crypto.randomUUID().toUpperCase(),
     group_id: toBase64(fromHex(groupId)),
     sender_bls_pubkey_hex: adminPublic.blsPublicKey,
     sent_at_millis: Date.now(),
-    variant: { kind: 'tyranny', body: 'A photo, encrypted on Blossom' },
-    attachment: {
-      sha256: hash,
-      mime_type: 'image/jpeg',
-      byte_size: plain.length,
-      width: 160,
-      height: 120,
-      enc_key: toBase64(keyBytes),
-      blurhash: 'LEHV6nWB2yk8pyo0adR*.7kCMdnj',
-      server: BLOSSOM,
-    },
-  })));
+    variant: { kind: 'tyranny', body },
+    ...media,
+  }));
+}
+
+async function sendPhoto(recipientInboxHex: string, path: string) {
+  await send(recipientInboxHex, buildMessage('A photo, encrypted on Blossom', { attachment: await buildImage(path) }));
   console.log('→ photo message sent');
 }
+
+// An album is one message: `attachments` lists its items and the flat single fields stay empty
+async function sendAlbum(recipientInboxHex: string, paths: string[]) {
+  const items = [];
+  for (const path of paths) items.push({ kind: 'image', image: await buildImage(path) });
+  await send(recipientInboxHex, buildMessage(`An album of ${paths.length} photos`, { attachments: items }));
+  console.log(`→ album of ${paths.length} photos sent`);
+}
+
+// A voice clip as the apps record it: AAC in MPEG-4, its duration from the file, 40 waveform bars 0…255
+async function sendVoice(recipientInboxHex: string, path: string) {
+  const clip = readFileSync(path);
+  const uploaded = await uploadEncrypted(clip, 'audio/mp4');
+  const waveform = Array.from({ length: 40 }, (_, i) => Math.round(127 + 127 * Math.sin(i / 3)));
+  await send(recipientInboxHex, buildMessage('', {
+    voice_attachment: {
+      ...uploaded, mime_type: 'audio/mp4', duration_seconds: readMp4Duration(clip), waveform,
+    },
+  }));
+  console.log('→ voice message sent');
+}
+
+// `mvhd` version 0: timescale and duration after the two creation times
+function readMp4Duration(file: Uint8Array) {
+  const view = new DataView(file.buffer, file.byteOffset, file.byteLength);
+  for (let i = 0; i + 28 < file.length; i++) {
+    if (file[i] === 0x6d && file[i + 1] === 0x76 && file[i + 2] === 0x68 && file[i + 3] === 0x64) {
+      return view.getUint32(i + 16) ? view.getUint32(i + 20) / view.getUint32(i + 16) : 0;
+    }
+  }
+  return 0;
+}
+
+// Fetch, check and decrypt what the web client attached, the way `ChatImageLoader` / `ChatVoiceLoader` do
+async function saveMedia(message: { image?: MediaRef; images?: MediaRef[]; voice?: MediaRef }) {
+  mkdirSync(mediaDir!, { recursive: true });
+  const refs = [
+    ...[message.image, ...(message.images || [])].filter(Boolean).map((ref) => [ref!, 'jpg'] as const),
+    ...(message.voice ? [[message.voice, 'm4a'] as const] : []),
+  ];
+  for (const [ref, extension] of refs) {
+    const response = await fetch(`${BLOSSOM}/${ref.sha256}`, { redirect: 'error' });
+    const blob = new Uint8Array(await response.arrayBuffer());
+    if (toHex(sha256(blob)) !== ref.sha256) {
+      console.log(`← ${extension} ${ref.sha256.slice(0, 16)}… does not match its address`);
+      continue;
+    }
+    const key = await crypto.subtle.importKey('raw', fromHex(ref.encryptionKey), 'AES-GCM', false, ['decrypt']);
+    const plain = new Uint8Array(
+      await crypto.subtle.decrypt({ name: 'AES-GCM', iv: blob.slice(0, 12) }, key, blob.slice(12)),
+    );
+    const file = `${mediaDir}/${ref.sha256.slice(0, 16)}.${extension}`;
+    writeFileSync(file, plain);
+    console.log(`← ${extension} saved: ${file} (${plain.length} B; byte_size ${ref.byteSize}, blob ${blob.length})`);
+  }
+}
+
+type MediaRef = { sha256: string; encryptionKey: string; byteSize: number };
 
 function readOption(name: string) {
   const index = options.indexOf(name);

@@ -2,7 +2,7 @@ import type { OpenedEnvelope } from './core/envelope';
 import type { IdentityPublic, IdentitySecrets } from './core/identity';
 import type {
   ChatMessage, ChatReceipt, GovernanceMember, GroupAvatarChange, GroupInvitation, GroupInviteOffer, GroupNameChange,
-  ImageAttachment, MemberAnnouncement, MemberProfile,
+  ImageAttachment, MemberAnnouncement, MemberProfile, VoiceAttachment,
 } from './core/payloads';
 import type { Inbound, RelayPool } from './core/relayPool';
 
@@ -74,8 +74,24 @@ export type Message = {
   isOutgoing: boolean;
   status?: 'pending' | 'sent' | 'failed' | 'delivered' | 'read';
   image?: ImageAttachment;
+  // An album; its photos take consecutive message numbers, one each, as Telegram shows an album
+  images?: ImageAttachment[];
+  voice?: VoiceAttachment;
   hasUnsupportedMedia?: boolean;
 };
+
+export type OutgoingContent = {
+  text: string;
+  replyTo?: string;
+  image?: ImageAttachment;
+  images?: ImageAttachment[];
+  voice?: VoiceAttachment;
+};
+
+// How many message numbers a message takes: one, or one per photo of an album
+export function getMessageSpan(message: Pick<Message, 'images'>) {
+  return message.images?.length || 1;
+}
 
 export type Notice = {
   seq: number;
@@ -238,12 +254,15 @@ export class Messenger {
     this.state.parked = {};
     Object.entries(clearedMessages).forEach(([groupId, messages]) => {
       const group = this.state.groups[groupId];
-      if (group) group.lastSeq = Math.max(group.lastSeq || 0, messages[messages.length - 1]?.seq || 0);
+      const last = messages[messages.length - 1];
+      if (group) group.lastSeq = Math.max(group.lastSeq || 0, last ? last.seq + getMessageSpan(last) - 1 : 0);
       this.state.cleared = {
         ...this.state.cleared,
         [groupId]: [...(this.state.cleared?.[groupId] || []), ...messages.map(({ logicalId }) => logicalId)],
       };
-      this.listener.onMessagesCleared(groupId, messages.map(({ seq }) => seq));
+      this.listener.onMessagesCleared(groupId, messages.flatMap((message) => (
+        Array.from({ length: getMessageSpan(message) }, (_, i) => message.seq + i)
+      )));
     });
     await this.flush();
   }
@@ -266,9 +285,9 @@ export class Messenger {
     return notice;
   }
 
-  async sendMessage(
-    groupId: string, { text, replyTo, image }: { text: string; replyTo?: string; image?: ImageAttachment },
-  ) {
+  async sendMessage(groupId: string, {
+    text, replyTo, image, images, voice,
+  }: OutgoingContent) {
     const group = this.state.groups[groupId];
     if (!group) throw new Error('Unknown group');
 
@@ -282,6 +301,8 @@ export class Messenger {
       isOutgoing: true,
       status: 'pending',
       image,
+      images,
+      voice,
     });
 
     const payload = encodeChatMessage({
@@ -292,6 +313,8 @@ export class Messenger {
       replyToMessageId: replyTo,
       body: text,
       image,
+      images,
+      voice,
     });
     const outcomes = await this.sendToMembers(group, payload);
     this.updateMessage({ ...message, status: outcomes.every(Boolean) ? 'sent' : 'failed' });
@@ -519,7 +542,7 @@ export class Messenger {
     this.getMessages(group.id).forEach((message) => {
       if (!message.isOutgoing || !ids.has(message.logicalId)) return;
       if (receipt.kind === 'read') {
-        maxReadSeq = Math.max(maxReadSeq, message.seq);
+        maxReadSeq = Math.max(maxReadSeq, message.seq + getMessageSpan(message) - 1);
         if (message.status !== 'read') this.updateMessage({ ...message, status: 'read' });
       } else if (message.status === 'sent' || message.status === 'pending') {
         this.updateMessage({ ...message, status: 'delivered' });
@@ -563,6 +586,8 @@ export class Messenger {
       replyTo: message.replyToMessageId,
       isOutgoing: false,
       image: message.image,
+      images: message.images,
+      voice: message.voice,
       hasUnsupportedMedia: message.hasUnsupportedMedia,
     });
 
@@ -600,9 +625,11 @@ export class Messenger {
   private insertMessage(message: Omit<Message, 'seq'>) {
     const list = this.state.messages[message.groupId] || [];
     const group = this.state.groups[message.groupId];
-    const inserted: Message = { ...message, seq: Math.max(list[list.length - 1]?.seq || 0, group?.lastSeq || 0) + 1 };
+    const last = list[list.length - 1];
+    const lastSeq = Math.max(last ? last.seq + getMessageSpan(last) - 1 : 0, group?.lastSeq || 0);
+    const inserted: Message = { ...message, seq: lastSeq + 1 };
     this.state.messages[message.groupId] = [...list, inserted];
-    if (group) group.lastSeq = inserted.seq;
+    if (group) group.lastSeq = inserted.seq + getMessageSpan(inserted) - 1;
     this.scheduleSave();
     this.listener.onMessage(inserted, true);
     return inserted;

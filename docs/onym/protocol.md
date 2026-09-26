@@ -107,10 +107,23 @@ fields all decode. Discriminating field in brackets.
 `"onym-group-rules-v1" ‖ group_id ‖ SHA-256(trimmed rules) ‖ joiner sending public key`; "trimmed" uses
 Swift's whitespace-and-newlines set (`core/rules.ts`). Hash and signature travel together or not at all.
 
-**Photo attachment** (`attachment`): `sha256` (lowercase hex of the encrypted blob), `mime_type`, `byte_size`,
-`width`, `height`, `enc_key` (32, base64), `blurhash`, `server`. **onym-android requires `blurhash`**:
-always send one (4×3 components, reference encoder rounding — `core/blurhash.ts`). Video, voice and albums
-(`video_attachment`, `voice_attachment`, `attachments`) are not supported here and show a placeholder.
+**Photo attachment** (`attachment`): `sha256` (lowercase hex of the encrypted blob), `mime_type`, `byte_size`
+(of the **encrypted** blob), `width`, `height`, `enc_key` (32, base64), `blurhash`, `server`. **onym-android requires
+`blurhash`**: always send one (4×3 components, reference encoder rounding — `core/blurhash.ts`).
+
+**Album** (`attachments`, two or more items; the flat `attachment` / `video_attachment` stay empty and `body` is the
+one caption): each item is `{"kind": "image", "image": {…photo attachment…}}` or `{"kind": "video", "video": {…}}`.
+Onymgram shows an album as grouped Telegram messages, one per photo, taking consecutive message numbers; a video
+item is not shown and leaves a note.
+
+**Voice** (`voice_attachment`; never with a caption or in an album): `sha256`, `mime_type` `"audio/mp4"`,
+`byte_size` (encrypted), `duration_seconds` (a double), `enc_key`, `waveform` (40 integers 0…255: RMS per bucket
+normalized to the loudest, `ChatVoiceEncoder`), `server`. The clip is **AAC in an MPEG-4 file** (`.m4a`), which the
+iOS app plays with `AVAudioPlayer` and Android records with `MediaRecorder` (MPEG_4/AAC). A browser records it with
+WebCodecs `AudioEncoder` (`mp4a.40.2`) and writes the file itself with the index ahead of the data
+(`src/util/voiceRecording/m4aAacWriter.ts`); check a file with `afinfo` / `afconvert`, which use the same AudioToolbox.
+
+Video (`video_attachment`: a poster image plus the video blob) is not supported here yet.
 
 Conventions: padded standard base64 for bytes, uppercase UUIDs, lowercase hex for BLS keys.
 

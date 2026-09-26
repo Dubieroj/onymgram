@@ -1,22 +1,24 @@
-import { ENCODER_CONFIG } from './nativeVoiceRecorder';
+import type { VoiceCodec } from './nativeVoiceRecorder';
 
-let usablePromise: Promise<boolean> | undefined;
+import { AAC_ENCODER_CONFIG, ENCODER_CONFIG } from './nativeVoiceRecorder';
 
-export function checkIsNativeRecorderUsable(): Promise<boolean> {
-  usablePromise ??= (async () => {
+const usablePromises: Partial<Record<VoiceCodec, Promise<boolean>>> = {};
+
+export function checkIsNativeRecorderUsable(codec: VoiceCodec = 'opus'): Promise<boolean> {
+  usablePromises[codec] ??= (async () => {
     if (!isNativeRecorderSupported()) {
       return false;
     }
 
     try {
-      const { supported } = await AudioEncoder.isConfigSupported(ENCODER_CONFIG);
+      const { supported } = await AudioEncoder.isConfigSupported(codec === 'aac' ? AAC_ENCODER_CONFIG : ENCODER_CONFIG);
       return Boolean(supported);
     } catch (err) {
       return false;
     }
   })();
 
-  return usablePromise;
+  return usablePromises[codec];
 }
 
 function isNativeRecorderSupported(): boolean {

@@ -232,7 +232,8 @@ export function getAllowedAttachmentOptions(
   }
 
   if (!HAS_TELEGRAM_SERVICES) {
-    // The Onym network carries text and photos; the service chat holds this interface's own notices, text only
+    // The Onym network carries text, photos and voice clips; the service chat holds this interface's own notices, text
+    // only
     const canSendPhotos = chat.id !== SERVICE_NOTIFICATIONS_USER_ID;
     return {
       canAttachMedia: canSendPhotos,
@@ -244,7 +245,7 @@ export function getAllowedAttachmentOptions(
       canSendVideos: false,
       canSendRoundVideos: false,
       canSendAudios: false,
-      canSendVoices: false,
+      canSendVoices: canSendPhotos,
       canSendPlainText: true,
       canSendDocuments: false,
       canAttachToDoLists: false,

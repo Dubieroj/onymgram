@@ -1,5 +1,8 @@
 import type { IOpusRecorder } from 'opus-recorder';
 
+import type { VoiceCodec } from './nativeVoiceRecorder';
+
+import { HAS_TELEGRAM_SERVICES } from '../../config';
 import { checkIsNativeRecorderUsable } from './isNativeRecorderSupported';
 import NativeVoiceRecorder from './nativeVoiceRecorder';
 import WaveformAnalyser from './waveformAnalyser';
@@ -17,13 +20,15 @@ export type ActiveRecording = {
 
 const MIN_RECORDING_TIME = 1000;
 const BLOB_PARAMS = { type: 'audio/ogg' };
+// The Onym apps record and play AAC in MPEG-4 only, so under Onym nothing else is recorded
+const AAC_BLOB_PARAMS = { type: 'audio/mp4' };
 const FALLBACK_TAP_BUFFER_SIZE = 2048;
 
 let fallbackInitPromise: Promise<void> | undefined;
 let opusMediaRecorder: IOpusRecorder;
 
 export async function init() {
-  if (await checkIsNativeRecorderUsable()) {
+  if (!HAS_TELEGRAM_SERVICES || await checkIsNativeRecorderUsable()) {
     return undefined;
   }
 
@@ -31,6 +36,13 @@ export async function init() {
 }
 
 export async function start(onPeak: (peak: number) => void): Promise<ActiveRecording> {
+  if (!HAS_TELEGRAM_SERVICES) {
+    if (!await checkIsNativeRecorderUsable('aac')) {
+      throw new DOMException('This browser cannot record AAC, the format the Onym apps play', 'NotSupportedError');
+    }
+    return startNative(onPeak, 'aac');
+  }
+
   return (await checkIsNativeRecorderUsable()) ? startNative(onPeak) : startFallback(onPeak);
 }
 
@@ -50,8 +62,8 @@ function initFallback() {
   return fallbackInitPromise;
 }
 
-async function startNative(onPeak: (peak: number) => void): Promise<ActiveRecording> {
-  const recorder = new NativeVoiceRecorder();
+async function startNative(onPeak: (peak: number) => void, codec: VoiceCodec = 'opus'): Promise<ActiveRecording> {
+  const recorder = new NativeVoiceRecorder(codec);
   const analyser = new WaveformAnalyser();
   analyser.onPeak = onPeak;
   recorder.onSamples = (samples) => analyser.pushSamples(samples);
@@ -70,7 +82,7 @@ async function startNative(onPeak: (peak: number) => void): Promise<ActiveRecord
         throw new Error('Voice recording produced no data');
       }
       return {
-        blob: new Blob([ogg.buffer as ArrayBuffer], BLOB_PARAMS),
+        blob: new Blob([ogg.buffer as ArrayBuffer], codec === 'aac' ? AAC_BLOB_PARAMS : BLOB_PARAMS),
         duration: Math.max(1, Math.round(timekeeper.getElapsedMs() / 1000)),
         waveform: Array.from(analyser.finish()),
       };
@@ -85,7 +97,8 @@ async function startNative(onPeak: (peak: number) => void): Promise<ActiveRecord
       timekeeper.resume();
       recorder.resume();
     },
-    getSnapshot: () => recorder.getSnapshot(),
+    // Replaying a paused recording decodes Ogg; an AAC recording is heard once sent
+    getSnapshot: codec === 'aac' ? undefined : () => recorder.getSnapshot(),
     getElapsedMs: timekeeper.getElapsedMs,
     getProfilePeaks: () => analyser.getCurrentPeaks(),
   };

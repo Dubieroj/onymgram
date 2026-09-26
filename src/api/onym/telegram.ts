@@ -1,8 +1,9 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 
 import type {
-  ApiChat, ApiKeyboardButtons, ApiMessage, ApiUser,
+  ApiChat, ApiKeyboardButtons, ApiMessage, ApiPhoto, ApiUser,
 } from '../types';
+import type { ImageAttachment } from './core/payloads';
 import type {
   Group, Message, Notice, Offer,
 } from './messenger';
@@ -106,23 +107,36 @@ export function buildMemberUsers(group: Group, selfBls: string): ApiUser[] {
     }));
 }
 
-export function buildGroupMessage(message: Message, messages: Message[]): ApiMessage {
+// One Onym message is one Telegram message, except an album: Telegram shows one message per photo, grouped, with
+// the caption on the first
+export function buildGroupMessages(message: Message, messages: Message[]): ApiMessage[] {
   const replyToSeq = message.replyTo
     ? messages.find(({ logicalId }) => logicalId === message.replyTo)?.seq
     : undefined;
 
-  return {
-    id: message.seq,
+  const common = {
     chatId: getChatIdOfGroup(message.groupId),
     date: Math.floor(message.sentAtMs / 1000),
     isOutgoing: message.isOutgoing,
     senderId: getUserIdOfMember(message.senderBls),
-    content: buildMessageContent(message),
-    sendingState: message.status === 'failed' ? 'messageSendingStateFailed'
-      : message.status === 'pending' ? 'messageSendingStatePending' : undefined,
-    replyInfo: replyToSeq ? { type: 'message', replyToMsgId: replyToSeq } : undefined,
+    sendingState: message.status === 'failed' ? 'messageSendingStateFailed' as const
+      : message.status === 'pending' ? 'messageSendingStatePending' as const : undefined,
+    replyInfo: replyToSeq ? { type: 'message' as const, replyToMsgId: replyToSeq } : undefined,
     isForwardingAllowed: true,
   };
+
+  if (message.images) {
+    const caption = buildCaption(message);
+    return message.images.map((image, i) => ({
+      ...common,
+      id: message.seq + i,
+      groupedId: message.logicalId,
+      isInAlbum: true,
+      content: { photo: buildPhoto(image, message), text: i === 0 ? caption : undefined },
+    }));
+  }
+
+  return [{ ...common, id: message.seq, content: buildMessageContent(message) }];
 }
 
 export function buildNoticeMessage(notice: Notice, offer: Offer | undefined, selfUserId: string): ApiMessage {
@@ -144,19 +158,36 @@ export function buildNoticeMessage(notice: Notice, offer: Offer | undefined, sel
 }
 
 function buildMessageContent(message: Message): ApiMessage['content'] {
-  const text = message.text ? { text: message.text } : undefined;
+  const text = buildCaption(message);
   if (message.image) {
-    const { sha256: hash, width, height } = message.image;
+    return { photo: buildPhoto(message.image, message), text };
+  }
+  if (message.voice) {
+    const { sha256: hash, durationSeconds, waveform, byteSize } = message.voice;
+    // The waveform is drawn relative to its own peak, so the apps' 0…255 values need no rescaling
     return {
-      photo: {
-        mediaType: 'photo', id: hash, date: Math.floor(message.sentAtMs / 1000), sizes: [{ type: 'x', width, height }],
+      voice: {
+        mediaType: 'voice', id: hash, duration: Math.round(durationSeconds), waveform, size: byteSize,
       },
       text,
     };
   }
-  if (message.hasUnsupportedMedia) {
-    const caption = message.text ? `\n${message.text}` : '';
-    return { text: { text: `📎 Media — this interface does not show Onym video, albums or voice yet${caption}` } };
-  }
   return { text: text || { text: '' } };
+}
+
+function buildPhoto(image: ImageAttachment, message: Message): ApiPhoto {
+  const { sha256: hash, width, height } = image;
+  return {
+    mediaType: 'photo',
+    id: hash,
+    date: Math.floor(message.sentAtMs / 1000),
+    sizes: [{ type: 'x', width, height }],
+  };
+}
+
+// Video is not shown here yet: its place in the message says so
+function buildCaption(message: Message) {
+  const note = message.hasUnsupportedMedia ? '📎 Video — this interface does not play Onym video yet' : undefined;
+  const text = [note, message.text].filter(Boolean).join('\n');
+  return text ? { text } : undefined;
 }

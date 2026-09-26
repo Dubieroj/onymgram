@@ -12,6 +12,7 @@ import type { RichEditor } from './richEditorTypes';
 import {
   BASE_EMOJI_KEYWORD_LANG,
   EDITABLE_INPUT_MODAL_ID,
+  HAS_TELEGRAM_SERVICES,
   SUPPORTED_AUDIO_CONTENT_TYPES,
   SUPPORTED_PHOTO_CONTENT_TYPES,
   SUPPORTED_VIDEO_CONTENT_TYPES,
@@ -334,7 +335,8 @@ const AttachmentModal = ({
         return;
       }
       const { totalLines } = calcTextLineHeightAndCount(input, true);
-      setShouldShowAiButton(totalLines >= 3);
+      // The AI editor is a Telegram service
+      setShouldShowAiButton(HAS_TELEGRAM_SERVICES && totalLines >= 3);
     });
   }, [richText, isOpen]);
 

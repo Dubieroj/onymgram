@@ -1,3 +1,4 @@
+import M4aAacWriter from './m4aAacWriter';
 import OggOpusWriter from './oggOpusWriter';
 
 const WORKLET_PROCESSOR_NAME = 'voice-capture-processor';
@@ -14,6 +15,19 @@ export const ENCODER_CONFIG: AudioEncoderConfig = {
   numberOfChannels: ENCODER_CHANNELS,
   bitrate: ENCODER_BITRATE,
 };
+
+// The Onym network's voice clips are AAC in MPEG-4, as the Onym apps record and play them
+const AAC_BITRATE = 64000;
+const AAC_FRAME_SAMPLES = 1024;
+export const AAC_ENCODER_CONFIG: AudioEncoderConfig = {
+  codec: 'mp4a.40.2',
+  sampleRate: ENCODER_SAMPLE_RATE,
+  numberOfChannels: ENCODER_CHANNELS,
+  bitrate: AAC_BITRATE,
+  aac: { format: 'aac' },
+};
+
+export type VoiceCodec = 'opus' | 'aac';
 
 type RecorderState = 'inactive' | 'recording' | 'paused';
 
@@ -32,11 +46,13 @@ export default class NativeVoiceRecorder {
 
   private encoder?: AudioEncoder;
 
-  private writer?: OggOpusWriter;
+  private writer?: OggOpusWriter | M4aAacWriter;
 
   private encoderTimestampUs = 0;
 
   private isOpusHeadCaptured = false;
+
+  constructor(private codec: VoiceCodec = 'opus') {}
 
   async start(): Promise<void> {
     if (this.state !== 'inactive') return;
@@ -56,10 +72,12 @@ export default class NativeVoiceRecorder {
         processorOptions: { bufferSize: WORKLET_BUFFER_SIZE },
       });
 
-      this.writer = new OggOpusWriter({
-        channels: ENCODER_CHANNELS,
-        inputSampleRate: ENCODER_SAMPLE_RATE,
-      });
+      this.writer = this.codec === 'aac'
+        ? new M4aAacWriter({ sampleRate: ENCODER_SAMPLE_RATE, channels: ENCODER_CHANNELS, bitrate: AAC_BITRATE })
+        : new OggOpusWriter({
+          channels: ENCODER_CHANNELS,
+          inputSampleRate: ENCODER_SAMPLE_RATE,
+        });
 
       this.encoder = new AudioEncoder({
         output: (chunk, metadata) => this.handleEncoderChunk(chunk, metadata),
@@ -67,7 +85,7 @@ export default class NativeVoiceRecorder {
         error: (err) => console.error('[NativeVoiceRecorder] encoder error:', err),
       });
 
-      this.encoder.configure(ENCODER_CONFIG);
+      this.encoder.configure(this.codec === 'aac' ? AAC_ENCODER_CONFIG : ENCODER_CONFIG);
 
       this.workletNode.port.onmessage = (e: MessageEvent<Float32Array>) => this.handleWorkletMessage(e.data);
 
@@ -132,7 +150,7 @@ export default class NativeVoiceRecorder {
   }
 
   getSnapshot(): Uint8Array {
-    return this.writer ? this.writer.snapshot() : new Uint8Array(0);
+    return this.writer instanceof OggOpusWriter ? this.writer.snapshot() : new Uint8Array(0);
   }
 
   async stop(): Promise<Uint8Array> {
@@ -215,12 +233,18 @@ export default class NativeVoiceRecorder {
       const bytes = desc instanceof ArrayBuffer
         ? new Uint8Array(desc)
         : new Uint8Array(view.buffer as ArrayBuffer, view.byteOffset, view.byteLength);
-      this.writer!.setOpusHead(bytes);
+      if (this.writer instanceof M4aAacWriter) this.writer.setDecoderConfig(bytes);
+      else this.writer!.setOpusHead(bytes);
       this.isOpusHeadCaptured = true;
     }
 
     const data = new Uint8Array(chunk.byteLength);
     chunk.copyTo(data);
+
+    if (this.writer instanceof M4aAacWriter) {
+      this.writer.writePacket(data, AAC_FRAME_SAMPLES);
+      return;
+    }
 
     const durationUs = chunk.duration ?? DEFAULT_FRAME_DURATION_US;
     const durationSamples = Math.round((durationUs * ENCODER_SAMPLE_RATE) / 1_000_000) || DEFAULT_OPUS_FRAME_SAMPLES;

@@ -71,9 +71,11 @@ Message Cache, which keeps the chats and remembers the cleared ids so a relay ca
 1. **Vectors first**: identity fixture and Poseidon commitment (protocol.md §1, §7), the rules signature, join
    links, and envelope signatures from real traffic. Port `src/api/onym/core/*.test.ts`.
 2. **The admin simulator** from this repo plays an iOS-format admin on the live relay:
-   `npx tsx dev/onym/simulate-admin.ts <64-hex inbox key or identity link> [--photo image.jpg] [--relay wss://…]`.
+   `npx tsx dev/onym/simulate-admin.ts <64-hex inbox key or identity link> [--photo a.jpg] [--album a.jpg,b.jpg]
+   [--voice clip.m4a] [--save-media dir] [--relay wss://…]`.
    Each run creates a new group, sends an offer, answers the join request with an invitation, writes a message
-   (and a photo), and sends a read receipt when you reply. It also replays older events the relay still holds,
+   (and a photo, an album, a voice clip), and sends a read receipt when you reply. `--save-media` fetches, checks
+   and decrypts every photo and clip the interface sends, for `sips` / `afinfo` to open. It also replays older events the relay still holds,
    so only trust log lines after the point you care about.
 3. **The real Onym app**: in the app, create a group and use *Invite by Inbox Key* with the 64-hex key; press
    Join; chat both ways; send photos both ways; check ticks. For group creation, reverse the roles: the app

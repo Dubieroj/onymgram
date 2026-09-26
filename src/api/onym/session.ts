@@ -11,7 +11,7 @@ import { RelayPool } from './core/relayPool';
 import { Messenger } from './messenger';
 import { getSettings, loadSettings } from './settings';
 import {
-  buildGroupChat, buildGroupMessage, buildMemberUsers, buildNoticeMessage, buildSelfUser, getChatIdOfGroup,
+  buildGroupChat, buildGroupMessages, buildMemberUsers, buildNoticeMessage, buildSelfUser, getChatIdOfGroup,
   getUserIdOfMember, SYSTEM_CHAT_ID,
 } from './telegram';
 
@@ -83,8 +83,9 @@ export function closeSession() {
   session = undefined;
 }
 
-export function buildMessageForUi(current: Session, message: Message): ApiMessage {
-  return buildGroupMessage(message, current.messenger.getMessages(message.groupId));
+// One entry per Telegram message: an album gives one per photo
+export function buildMessagesForUi(current: Session, message: Message): ApiMessage[] {
+  return buildGroupMessages(message, current.messenger.getMessages(message.groupId));
 }
 
 export function buildNoticeForUi(current: Session, notice: Notice): ApiMessage {
@@ -130,16 +131,17 @@ function emitMessage(current: Session, message: Message, isNew: boolean) {
   // Outgoing messages reach the UI through `sendMessage`, which owns their local id
   if (isNew && message.isOutgoing) return;
 
-  const apiMessage = buildMessageForUi(current, message);
-  if (isNew) {
-    sendApiUpdate({
-      '@type': 'newMessage', chatId: apiMessage.chatId, id: apiMessage.id, message: apiMessage,
-    });
-  } else {
-    sendApiUpdate({
-      '@type': 'updateMessage', chatId: apiMessage.chatId, id: apiMessage.id, message: apiMessage, isFull: true,
-    });
-  }
+  buildMessagesForUi(current, message).forEach((apiMessage) => {
+    if (isNew) {
+      sendApiUpdate({
+        '@type': 'newMessage', chatId: apiMessage.chatId, id: apiMessage.id, message: apiMessage,
+      });
+    } else {
+      sendApiUpdate({
+        '@type': 'updateMessage', chatId: apiMessage.chatId, id: apiMessage.id, message: apiMessage, isFull: true,
+      });
+    }
+  });
 }
 
 function emitMessagesCleared(current: Session, groupId: string, seqs: number[]) {

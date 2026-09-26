@@ -4,6 +4,6 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/api/onym/**/*.test.ts'],
+    include: ['src/api/onym/**/*.test.ts', 'src/util/voiceRecording/**/*.test.ts'],
   },
 });

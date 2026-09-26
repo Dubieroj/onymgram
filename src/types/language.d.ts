@@ -2476,6 +2476,7 @@ export interface LangPair {
   'OnymRelaysNote': undefined;
   'OnymBlossomNote': undefined;
   'OnymNoDirectMessages': undefined;
+  'OnymVoiceUnsupported': undefined;
 }
 
 export interface LangPairWithVariables<V = LangVariable> {

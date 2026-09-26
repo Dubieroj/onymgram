@@ -114,4 +114,52 @@ describe('payloads', () => {
       groupId: GROUP_ID,
     }))).toBeUndefined();
   });
+
+  // onym-ios `ChatMessagePayload`: an album is `attachments` of `{kind, image}` items with the flat fields empty; a
+  // voice clip is `voice_attachment`, AAC in MPEG-4 with 40 waveform bars
+  it('carries albums and voice clips in the apps\' shapes', () => {
+    const image = {
+      sha256: 'ab'.repeat(32), mimeType: 'image/jpeg', byteSize: 1028, width: 800, height: 500,
+      encryptionKey: GROUP_ID, blurhash: 'LEHV6nWB2yk8pyo0adR*.7kCMdnj', server: 'https://blossom.onym.app',
+    };
+    const common = {
+      messageId: 'e621e1f8-c36c-495a-93fc-0c247a3e6e5f', groupId: GROUP_ID, senderBlsPublicKey: BLS, sentAtMs: 1,
+    };
+
+    const album = JSON.parse(new TextDecoder().decode(encodeChatMessage({
+      ...common, body: 'Two', images: [image, { ...image, sha256: 'cd'.repeat(32) }],
+    })));
+    expect(album.attachment).toBeUndefined();
+    expect(album.attachments).toEqual([
+      {
+        kind: 'image',
+        image: {
+          sha256: 'ab'.repeat(32), mime_type: 'image/jpeg', byte_size: 1028, width: 800, height: 500,
+          enc_key: Buffer.from(GROUP_ID, 'hex').toString('base64'), blurhash: image.blurhash, server: image.server,
+        },
+      },
+      expect.objectContaining({ kind: 'image' }),
+    ]);
+    expect(decodeInboundPayload(utf8(JSON.stringify(album)))).toMatchObject({
+      type: 'message', body: 'Two', images: [image, { ...image, sha256: 'cd'.repeat(32) }],
+    });
+
+    const waveform = Array.from({ length: 40 }, (_, i) => i * 6);
+    const voice = {
+      sha256: 'ef'.repeat(32), mimeType: 'audio/mp4', byteSize: 10746, durationSeconds: 3.5,
+      encryptionKey: GROUP_ID, waveform, server: 'https://blossom.onym.app',
+    };
+    const clip = JSON.parse(new TextDecoder().decode(encodeChatMessage({ ...common, body: '', voice })));
+    expect(clip.voice_attachment).toEqual({
+      sha256: 'ef'.repeat(32), mime_type: 'audio/mp4', byte_size: 10746, duration_seconds: 3.5,
+      enc_key: Buffer.from(GROUP_ID, 'hex').toString('base64'), waveform, server: voice.server,
+    });
+    expect(decodeInboundPayload(utf8(JSON.stringify(clip)))).toMatchObject({ type: 'message', voice });
+
+    // A video in an album is not shown here: its photos are, with a note
+    const mixed = { ...album, attachments: [album.attachments[0], { kind: 'video', video: {} }] };
+    expect(decodeInboundPayload(utf8(JSON.stringify(mixed)))).toMatchObject({
+      images: [image], hasUnsupportedMedia: true,
+    });
+  });
 });

@@ -26,4 +26,6 @@ Everything cites the public Onym repositories at these commits (paths below are 
 
 Onymgram itself was verified with the Onym iOS app on 25 September 2026: the app created a group, invited
 Onymgram by its inbox key, approved the join request, and messages went both ways over `wss://nostr.onym.app`.
-Photos and receipts were verified against `dev/onym/simulate-admin.ts`, which writes the apps' formats.
+Photos, albums, voice messages and receipts were verified against `dev/onym/simulate-admin.ts`, which writes
+the apps' formats and, with `--save-media`, fetches and decrypts what Onymgram sends as the apps do; the files open
+with Apple's ImageIO and AudioToolbox, the decoders behind the iOS app's `UIImage` and `AVAudioPlayer`.

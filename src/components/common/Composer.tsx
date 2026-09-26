@@ -1170,7 +1170,7 @@ const Composer = ({
       return MainButtonState.Edit;
     }
 
-    if (HAS_TELEGRAM_SERVICES && (IS_VOICE_RECORDING_SUPPORTED || IS_VIDEO_RECORDING_SUPPORTED)
+    if ((HAS_TELEGRAM_SERVICES || canSendVoices) && (IS_VOICE_RECORDING_SUPPORTED || IS_VIDEO_RECORDING_SUPPORTED)
       && !activeVoiceRecording && !activeVideoRecording && !isForwarding && !isRichInputExpansionActive
       && !(hasInputContent && !hasAttachments)) {
       return MainButtonState.Record;
@@ -1183,7 +1183,7 @@ const Composer = ({
     return MainButtonState.Send;
   }, [
     activeVoiceRecording, activeVideoRecording, editingMessage, hasAttachments, isForwarding, isComposerEngaged,
-    onForward, shouldForceShowEditing, isInScheduledList, hasInputContent, isRichInputExpansionActive,
+    onForward, shouldForceShowEditing, isInScheduledList, hasInputContent, isRichInputExpansionActive, canSendVoices,
   ]);
   const canShowCustomSendMenu = !isInScheduledList;
 

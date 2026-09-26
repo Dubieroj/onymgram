@@ -41,6 +41,8 @@ which the UI already treats as "not available".
 | Invitations, join requests, status | The **Onymgram** service chat, with Join / Decline buttons |
 | Delivered / read receipts | One or two ticks; Settings → Data turns read receipts off both ways, as the app does |
 | An encrypted Blossom image | A photo |
+| An album | Grouped photos; send several photos at once to make one |
+| A voice clip (AAC in MPEG-4) | A voice message, played and recorded here in the apps' format |
 | Nostr relays, Blossom servers | Settings → Transport: Onym's own servers, labelled as defaults, in lists you can replace |
 | No direct messages | A member's chat shows who they are, with a note in place of the composer |
 
@@ -76,7 +78,8 @@ join request, and messages went both ways over `wss://nostr.onym.app`. The admin
 - **The chain anchor is not checked.** An invitation must be signed by its admin and its roster must
   reproduce its own commitment, but the commitment is not compared with the Stellar contract. The group
   info panel says so.
-- **Text and photos only.** Video, voice and albums are not sent; received ones show as a placeholder.
+- **No video yet.** Text, photos, albums and voice messages go both ways; a video is neither sent nor played, and
+  a received one shows a note. Voice is recorded as AAC, which Chrome and Edge can do; other browsers play it.
 - **Only what Onym carries is offered.** Calls, channels, contacts, forwarding, editing, deleting, pinning
   and reports are hidden. A mute stays in this browser, and clearing the message cache deletes messages
   here only.

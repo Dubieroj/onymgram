@@ -94,6 +94,18 @@ export type ImageAttachment = {
   server?: string;
 };
 
+// A voice clip: AAC in an MPEG-4 container (`audio/mp4`), as both apps record it, with a waveform of 40 values
+// 0…255 drawn before the clip is downloaded
+export type VoiceAttachment = {
+  sha256: string;
+  mimeType: string;
+  byteSize: number;
+  durationSeconds: number;
+  encryptionKey: string;
+  waveform: number[];
+  server?: string;
+};
+
 export type ChatMessage = {
   type: 'message';
   messageId: string;
@@ -104,6 +116,9 @@ export type ChatMessage = {
   variantKind: string;
   body: string;
   image?: ImageAttachment;
+  // The photos of an album (`attachments`, two or more items); its videos are not shown here
+  images?: ImageAttachment[];
+  voice?: VoiceAttachment;
   hasUnsupportedMedia?: boolean;
 };
 
@@ -260,8 +275,10 @@ function decodeChatMessage(json: Json): ChatMessage | undefined {
   integer(json.version);
   const variant = object(json.variant);
   const image = optional(json.attachment, decodeImage);
-  const hasUnsupportedMedia = [json.video_attachment, json.attachments, json.voice_attachment]
-    .some((value) => !isAbsent(value));
+  const album = optional(json.attachments, array)?.map((item) => object(item));
+  const images = album?.filter((item) => item.kind === 'image').map((item) => decodeImage(item.image));
+  const voice = optional(json.voice_attachment, decodeVoice);
+  const hasUnsupportedMedia = !isAbsent(json.video_attachment) || Boolean(album?.some((item) => item.kind !== 'image'));
   return {
     type: 'message',
     messageId: uuid(json.message_id),
@@ -272,6 +289,8 @@ function decodeChatMessage(json: Json): ChatMessage | undefined {
     variantKind: string(variant.kind),
     body: string(variant.body),
     image,
+    images: images?.length ? images : undefined,
+    voice,
     hasUnsupportedMedia: hasUnsupportedMedia || undefined,
   };
 }
@@ -286,6 +305,22 @@ function decodeImage(value: unknown): ImageAttachment {
     height: integer(json.height),
     encryptionKey: bytes(json.enc_key, 32),
     blurhash: optional(json.blurhash, string),
+    server: optional(json.server, string),
+  };
+}
+
+function decodeVoice(value: unknown): VoiceAttachment {
+  const json = object(value);
+  if (typeof json.duration_seconds !== 'number' || !Number.isFinite(json.duration_seconds)) {
+    throw new Error('Expected duration');
+  }
+  return {
+    sha256: string(json.sha256).toLowerCase(),
+    mimeType: string(json.mime_type),
+    byteSize: integer(json.byte_size),
+    durationSeconds: Math.max(0, json.duration_seconds),
+    encryptionKey: bytes(json.enc_key, 32),
+    waveform: array(json.waveform).map((sample) => Math.max(0, Math.min(255, integer(sample)))),
     server: optional(json.server, string),
   };
 }
@@ -316,17 +351,32 @@ export function encodeChatMessage(message: Omit<ChatMessage, 'type' | 'variantKi
     sent_at_millis: message.sentAtMs,
     reply_to_message_id: message.replyToMessageId?.toUpperCase(),
     variant: { kind: 'tyranny', body: message.body },
-    attachment: message.image && {
-      sha256: message.image.sha256,
-      mime_type: message.image.mimeType,
-      byte_size: message.image.byteSize,
-      width: message.image.width,
-      height: message.image.height,
-      enc_key: hexToBase64(message.image.encryptionKey),
-      blurhash: message.image.blurhash,
-      server: message.image.server,
+    attachment: message.image && encodeImage(message.image),
+    // Two or more photos travel as an album; the flat single fields stay empty
+    attachments: message.images?.map((image) => ({ kind: 'image', image: encodeImage(image) })),
+    voice_attachment: message.voice && {
+      sha256: message.voice.sha256,
+      mime_type: message.voice.mimeType,
+      byte_size: message.voice.byteSize,
+      duration_seconds: message.voice.durationSeconds,
+      enc_key: hexToBase64(message.voice.encryptionKey),
+      waveform: message.voice.waveform,
+      server: message.voice.server,
     },
   });
+}
+
+function encodeImage(image: ImageAttachment) {
+  return {
+    sha256: image.sha256,
+    mime_type: image.mimeType,
+    byte_size: image.byteSize,
+    width: image.width,
+    height: image.height,
+    enc_key: hexToBase64(image.encryptionKey),
+    blurhash: image.blurhash,
+    server: image.server,
+  };
 }
 
 export function encodeReceipt(receipt: Omit<ChatReceipt, 'type'>) {
