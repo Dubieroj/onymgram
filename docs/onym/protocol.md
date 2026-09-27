@@ -121,7 +121,10 @@ item is not shown and leaves a note.
 normalized to the loudest, `ChatVoiceEncoder`), `server`. The clip is **AAC in an MPEG-4 file** (`.m4a`), which the
 iOS app plays with `AVAudioPlayer` and Android records with `MediaRecorder` (MPEG_4/AAC). A browser records it with
 WebCodecs `AudioEncoder` (`mp4a.40.2`) and writes the file itself with the index ahead of the data
-(`src/util/voiceRecording/m4aAacWriter.ts`); check a file with `afinfo` / `afconvert`, which use the same AudioToolbox.
+(`src/util/voiceRecording/m4aAacWriter.ts`). Safari has no WebCodecs audio; its `MediaRecorder`
+(`audio/mp4;codecs=mp4a.40.2`) writes fragments, which are rewritten the same way (`mp4AacReader.ts`). Chrome's
+`MediaRecorder` writes Opus into `audio/mp4` unless AAC is named. Check a file with `afinfo` / `afconvert`, which use
+the same AudioToolbox.
 
 Video (`video_attachment`: a poster image plus the video blob) is not supported here yet.
 

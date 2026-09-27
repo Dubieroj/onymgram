@@ -3,6 +3,7 @@ import type { IOpusRecorder } from 'opus-recorder';
 import type { VoiceCodec } from './nativeVoiceRecorder';
 
 import { HAS_TELEGRAM_SERVICES } from '../../config';
+import AacMediaRecorder from './aacMediaRecorder';
 import { checkIsNativeRecorderUsable } from './isNativeRecorderSupported';
 import NativeVoiceRecorder from './nativeVoiceRecorder';
 import WaveformAnalyser from './waveformAnalyser';
@@ -37,10 +38,13 @@ export async function init() {
 
 export async function start(onPeak: (peak: number) => void): Promise<ActiveRecording> {
   if (!HAS_TELEGRAM_SERVICES) {
-    if (!await checkIsNativeRecorderUsable('aac')) {
-      throw new DOMException('This browser cannot record AAC, the format the Onym apps play', 'NotSupportedError');
+    if (await checkIsNativeRecorderUsable('aac')) {
+      return startNative(onPeak, 'aac');
     }
-    return startNative(onPeak, 'aac');
+    if (AacMediaRecorder.isSupported()) {
+      return startNative(onPeak, 'aac', new AacMediaRecorder());
+    }
+    throw new DOMException('This browser cannot record AAC, the format the Onym apps play', 'NotSupportedError');
   }
 
   return (await checkIsNativeRecorderUsable()) ? startNative(onPeak) : startFallback(onPeak);
@@ -62,8 +66,11 @@ function initFallback() {
   return fallbackInitPromise;
 }
 
-async function startNative(onPeak: (peak: number) => void, codec: VoiceCodec = 'opus'): Promise<ActiveRecording> {
-  const recorder = new NativeVoiceRecorder(codec);
+async function startNative(
+  onPeak: (peak: number) => void,
+  codec: VoiceCodec = 'opus',
+  recorder: NativeVoiceRecorder | AacMediaRecorder = new NativeVoiceRecorder(codec),
+): Promise<ActiveRecording> {
   const analyser = new WaveformAnalyser();
   analyser.onPeak = onPeak;
   recorder.onSamples = (samples) => analyser.pushSamples(samples);
@@ -98,7 +105,7 @@ async function startNative(onPeak: (peak: number) => void, codec: VoiceCodec = '
       recorder.resume();
     },
     // Replaying a paused recording decodes Ogg; an AAC recording is heard once sent
-    getSnapshot: codec === 'aac' ? undefined : () => recorder.getSnapshot(),
+    getSnapshot: recorder instanceof NativeVoiceRecorder && codec !== 'aac' ? () => recorder.getSnapshot() : undefined,
     getElapsedMs: timekeeper.getElapsedMs,
     getProfilePeaks: () => analyser.getCurrentPeaks(),
   };
