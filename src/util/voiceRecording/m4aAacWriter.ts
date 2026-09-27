@@ -30,6 +30,9 @@ export default class M4aAacWriter {
   }
 
   finalize(): Uint8Array {
+    // Empty, so a recorder whose encoder failed reports it instead of sending a clip with no sound
+    if (!this.frames.length) return new Uint8Array(0);
+
     const ftyp = box('ftyp', ascii('M4A '), u32(0), ascii('M4A '), ascii('mp42'), ascii('isom'));
     const payloadSize = this.frames.reduce((sum, frame) => sum + frame.length, 0);
     // The chunk offset is a fixed-width field, so the index measures the same whatever offset it carries

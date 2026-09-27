@@ -79,7 +79,8 @@ join request, and messages went both ways over `wss://nostr.onym.app`. The admin
   reproduce its own commitment, but the commitment is not compared with the Stellar contract. The group
   info panel says so.
 - **No video yet.** Text, photos, albums and voice messages go both ways; a video is neither sent nor played, and
-  a received one shows a note. Voice is recorded as AAC, which Chrome, Edge and Safari can do; other browsers play it.
+  a received one shows a note. Voice is recorded as AAC: with WebCodecs in Chrome and Edge, MediaRecorder in
+  Safari, and FFmpeg's encoder in WebAssembly (0.8 MB, loaded only there) in Firefox.
 - **Only what Onym carries is offered.** Calls, channels, contacts, forwarding, editing, deleting, pinning
   and reports are hidden. A mute stays in this browser, and clearing the message cache deletes messages
   here only.

@@ -21,6 +21,11 @@ export function checkIsNativeRecorderUsable(codec: VoiceCodec = 'opus'): Promise
   return usablePromises[codec];
 }
 
+// FFmpeg's AAC encoder in WebAssembly stands in where WebCodecs cannot encode AAC
+export function isWasmAacEncoderSupported() {
+  return isNativeRecorderSupported() && typeof WebAssembly !== 'undefined' && typeof Worker !== 'undefined';
+}
+
 function isNativeRecorderSupported(): boolean {
   return typeof AudioEncoder !== 'undefined'
     && typeof AudioData !== 'undefined'

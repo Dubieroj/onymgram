@@ -1,5 +1,6 @@
 import M4aAacWriter from './m4aAacWriter';
 import OggOpusWriter from './oggOpusWriter';
+import WasmAacEncoder from './wasmAacEncoder';
 
 const WORKLET_PROCESSOR_NAME = 'voice-capture-processor';
 const WORKLET_BUFFER_SIZE = 2048;
@@ -27,6 +28,9 @@ export const AAC_ENCODER_CONFIG: AudioEncoderConfig = {
   aac: { format: 'aac' },
 };
 
+// FFmpeg's encoder lets the level jump on tones below 96 kbps, held vowels included
+const WASM_AAC_ENCODER_CONFIG: AudioEncoderConfig = { ...AAC_ENCODER_CONFIG, bitrate: 96000 };
+
 export type VoiceCodec = 'opus' | 'aac';
 
 type RecorderState = 'inactive' | 'recording' | 'paused';
@@ -44,7 +48,7 @@ export default class NativeVoiceRecorder {
 
   private workletNode?: AudioWorkletNode;
 
-  private encoder?: AudioEncoder;
+  private encoder?: AudioEncoder | WasmAacEncoder;
 
   private writer?: OggOpusWriter | M4aAacWriter;
 
@@ -52,7 +56,8 @@ export default class NativeVoiceRecorder {
 
   private isOpusHeadCaptured = false;
 
-  constructor(private codec: VoiceCodec = 'opus') {}
+  // `isWasmAacEncoder`: AAC from FFmpeg in WebAssembly, where WebCodecs cannot encode it
+  constructor(private codec: VoiceCodec = 'opus', private isWasmAacEncoder = false) {}
 
   async start(): Promise<void> {
     if (this.state !== 'inactive') return;
@@ -72,20 +77,22 @@ export default class NativeVoiceRecorder {
         processorOptions: { bufferSize: WORKLET_BUFFER_SIZE },
       });
 
+      const aacConfig = this.isWasmAacEncoder ? WASM_AAC_ENCODER_CONFIG : AAC_ENCODER_CONFIG;
       this.writer = this.codec === 'aac'
-        ? new M4aAacWriter({ sampleRate: ENCODER_SAMPLE_RATE, channels: ENCODER_CHANNELS, bitrate: AAC_BITRATE })
+        ? new M4aAacWriter({ sampleRate: ENCODER_SAMPLE_RATE, channels: ENCODER_CHANNELS, bitrate: aacConfig.bitrate! })
         : new OggOpusWriter({
           channels: ENCODER_CHANNELS,
           inputSampleRate: ENCODER_SAMPLE_RATE,
         });
 
-      this.encoder = new AudioEncoder({
+      const encoderInit: AudioEncoderInit = {
         output: (chunk, metadata) => this.handleEncoderChunk(chunk, metadata),
         // eslint-disable-next-line no-console
         error: (err) => console.error('[NativeVoiceRecorder] encoder error:', err),
-      });
+      };
+      this.encoder = this.isWasmAacEncoder ? new WasmAacEncoder(encoderInit) : new AudioEncoder(encoderInit);
 
-      this.encoder.configure(this.codec === 'aac' ? AAC_ENCODER_CONFIG : ENCODER_CONFIG);
+      this.encoder.configure(this.codec === 'aac' ? aacConfig : ENCODER_CONFIG);
 
       this.workletNode.port.onmessage = (e: MessageEvent<Float32Array>) => this.handleWorkletMessage(e.data);
 

@@ -39,7 +39,8 @@ describe('readAacTrack', () => {
   });
 
   it('reads the fragments MediaRecorder writes', () => {
-    // As Safari lays them out: offsets from the start of `moof`, two runs with their own offsets and sizes
+    // After one indexed sample, fragments as Safari lays them out: offsets from the start of `moof`, two runs with
+    // their own offsets and sizes
     const tfhd = box('tfhd', u32(0x020018), u32(1), u32(1024), u32(0));
     const trun = (offset: number, sizes: number[]) => box('trun', u32(0x000201), u32(sizes.length), u32(offset),
       ...sizes.map(u32));
@@ -50,9 +51,9 @@ describe('readAacTrack', () => {
     const moof = buildMoof(moofSize + 8, moofSize + 8 + 5);
     const mdat = box('mdat', [1, 2, 3, 4, 5, 6]);
 
-    const track = readAacTrack(new Uint8Array([...writeM4a([]), ...moof, ...mdat]))!;
+    const track = readAacTrack(new Uint8Array([...writeM4a([[9]]), ...moof, ...mdat]))!;
 
-    expect(track.frames.map((frame) => [...frame])).toEqual([[1, 2, 3], [4, 5], [6]]);
+    expect(track.frames.map((frame) => [...frame])).toEqual([[9], [1, 2, 3], [4, 5], [6]]);
   });
 
   it('refuses a track that is not AAC', () => {

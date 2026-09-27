@@ -32,6 +32,7 @@ export default defineConfig(
     'src/lib/lovely-chart/**',
     'src/lib/music-metadata-browser',
     'src/lib/fastBlur.js',
+    'src/lib/aacEncoder/',
     'src/types/language.d.ts',
     'dist/',
     'public/',

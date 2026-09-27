@@ -123,8 +123,11 @@ iOS app plays with `AVAudioPlayer` and Android records with `MediaRecorder` (MPE
 WebCodecs `AudioEncoder` (`mp4a.40.2`) and writes the file itself with the index ahead of the data
 (`src/util/voiceRecording/m4aAacWriter.ts`). Safari has no WebCodecs audio; its `MediaRecorder`
 (`audio/mp4;codecs=mp4a.40.2`) writes fragments, which are rewritten the same way (`mp4AacReader.ts`). Chrome's
-`MediaRecorder` writes Opus into `audio/mp4` unless AAC is named. Check a file with `afinfo` / `afconvert`, which use
-the same AudioToolbox.
+`MediaRecorder` writes Opus into `audio/mp4` unless AAC is named. Where neither can write AAC (Firefox, Chrome on
+Linux), FFmpeg's encoder compiled to WebAssembly does (`src/lib/aacEncoder`), at 96 kbps: below that it lets the level
+jump on tones and held vowels. Apple's decoders assume 2112 priming samples when a file marks none, so they drop the
+first 1088 samples (23 ms) of a clip from FFmpeg, whose encoder delay is 1024. Check a file with `afinfo` /
+`afconvert`, which use the same AudioToolbox.
 
 Video (`video_attachment`: a poster image plus the video blob) is not supported here yet.
 

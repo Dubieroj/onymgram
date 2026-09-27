@@ -4,7 +4,7 @@ import type { VoiceCodec } from './nativeVoiceRecorder';
 
 import { HAS_TELEGRAM_SERVICES } from '../../config';
 import AacMediaRecorder from './aacMediaRecorder';
-import { checkIsNativeRecorderUsable } from './isNativeRecorderSupported';
+import { checkIsNativeRecorderUsable, isWasmAacEncoderSupported } from './isNativeRecorderSupported';
 import NativeVoiceRecorder from './nativeVoiceRecorder';
 import WaveformAnalyser from './waveformAnalyser';
 
@@ -43,6 +43,9 @@ export async function start(onPeak: (peak: number) => void): Promise<ActiveRecor
     }
     if (AacMediaRecorder.isSupported()) {
       return startNative(onPeak, 'aac', new AacMediaRecorder());
+    }
+    if (isWasmAacEncoderSupported()) {
+      return startNative(onPeak, 'aac', new NativeVoiceRecorder('aac', true));
     }
     throw new DOMException('This browser cannot record AAC, the format the Onym apps play', 'NotSupportedError');
   }
