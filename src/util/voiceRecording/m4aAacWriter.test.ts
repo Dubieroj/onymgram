@@ -49,4 +49,18 @@ describe('M4aAacWriter', () => {
     const esds = find(file, 'esds');
     expect([...file.subarray(esds, esds + 128)].join(',')).toContain([0x05, 0x80, 0x80, 0x80, 2, 0x11, 0x88].join(','));
   });
+
+  it('takes the AudioSpecificConfig out of the ES_Descriptor Safari gives as the description', () => {
+    // Safari 26.5's AudioEncoder, AAC 48 kHz mono: AudioToolbox's magic cookie
+    const cookie = Buffer.from('038080802200000004808080144014001800000000000000000005808080021188068080800102', 'hex');
+    const writer = new M4aAacWriter({ sampleRate: 48000, channels: 1, bitrate: 64000 });
+    writer.setDecoderConfig(new Uint8Array(cookie));
+    writer.writePacket(new Uint8Array([1]), 1024);
+    const file = writer.finalize();
+
+    const esds = find(file, 'esds');
+    const body = [...file.subarray(esds, esds + 128)].join(',');
+    expect(body).toContain([0x05, 0x80, 0x80, 0x80, 2, 0x11, 0x88, 0x06].join(','));
+    expect(body).not.toContain([0x05, 0x80, 0x80, 0x80, 0x27].join(','));
+  });
 });

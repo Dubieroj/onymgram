@@ -138,6 +138,13 @@ function readFragmentSamples(file: Uint8Array, view: DataView, moof: Box) {
   });
 }
 
+// An encoder's description is the AudioSpecificConfig itself, except in Safari, whose WebCodecs hand over the whole
+// ES_Descriptor (AudioToolbox's magic cookie). No AudioSpecificConfig starts with the descriptor's tag, object type 0
+export function toAudioSpecificConfig(description: Uint8Array) {
+  if (description[0] !== ES_DESCRIPTOR_TAG) return description;
+  return readDecoderSpecificInfo(description, 0, description.length) || description;
+}
+
 // ISO/IEC 14496-3 §1.6.2.1: five bits of object type, four of frequency index, four of channel configuration
 function readAudioSpecificConfig(config: Uint8Array) {
   if (config.length < 2 || config[0] >> 3 === 31) return undefined;

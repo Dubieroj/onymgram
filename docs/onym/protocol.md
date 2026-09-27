@@ -121,8 +121,10 @@ item is not shown and leaves a note.
 normalized to the loudest, `ChatVoiceEncoder`), `server`. The clip is **AAC in an MPEG-4 file** (`.m4a`), which the
 iOS app plays with `AVAudioPlayer` and Android records with `MediaRecorder` (MPEG_4/AAC). A browser records it with
 WebCodecs `AudioEncoder` (`mp4a.40.2`) and writes the file itself with the index ahead of the data
-(`src/util/voiceRecording/m4aAacWriter.ts`). Safari has no WebCodecs audio; its `MediaRecorder`
-(`audio/mp4;codecs=mp4a.40.2`) writes fragments, which are rewritten the same way (`mp4AacReader.ts`). Chrome's
+(`src/util/voiceRecording/m4aAacWriter.ts`). Safari's WebCodecs give AudioToolbox's magic cookie, a whole
+ES_Descriptor, as `decoderConfig.description`: take the AudioSpecificConfig out of it, or FFmpeg (Telegram Desktop)
+and AudioToolbox (the iOS app) cannot open the file. A Safari without WebCodecs audio records with `MediaRecorder`
+(`audio/mp4;codecs=mp4a.40.2`), whose fragments are rewritten the same way (`mp4AacReader.ts`). Chrome's
 `MediaRecorder` writes Opus into `audio/mp4` unless AAC is named. Where neither can write AAC (Firefox, Chrome on
 Linux), FFmpeg's encoder compiled to WebAssembly does (`src/lib/aacEncoder`), at 96 kbps: below that it lets the level
 jump on tones and held vowels. Apple's decoders assume 2112 priming samples when a file marks none, so they drop the

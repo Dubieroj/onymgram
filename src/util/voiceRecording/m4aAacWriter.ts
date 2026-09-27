@@ -1,3 +1,5 @@
+import { toAudioSpecificConfig } from './mp4AacReader';
+
 // Packs raw AAC frames from WebCodecs into an MPEG-4 audio file (.m4a) as AVAudioRecorder and Android's
 // MediaRecorder write one: a single sound track, every frame in one chunk, the index (moov) before the data, so
 // AVAudioPlayer (AudioToolbox) and Android's MediaPlayer open it without streaming support
@@ -19,9 +21,9 @@ export default class M4aAacWriter {
 
   constructor(private options: Options) {}
 
-  // The encoder's `decoderConfig.description`: the AudioSpecificConfig of the stream
+  // The encoder's `decoderConfig.description`, which carries the AudioSpecificConfig of the stream
   setDecoderConfig(description: Uint8Array) {
-    this.audioSpecificConfig = description.slice();
+    this.audioSpecificConfig = toAudioSpecificConfig(description).slice();
   }
 
   writePacket(frame: Uint8Array, durationSamples: number) {
