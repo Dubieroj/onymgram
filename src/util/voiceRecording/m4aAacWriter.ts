@@ -21,9 +21,10 @@ export default class M4aAacWriter {
 
   constructor(private options: Options) {}
 
-  // The encoder's `decoderConfig.description`, which carries the AudioSpecificConfig of the stream
+  // The encoder's `decoderConfig.description`, which carries the AudioSpecificConfig of the stream; without one the
+  // file gets the AAC-LC config for its rate and channels
   setDecoderConfig(description: Uint8Array) {
-    this.audioSpecificConfig = toAudioSpecificConfig(description).slice();
+    this.audioSpecificConfig = toAudioSpecificConfig(description)?.slice();
   }
 
   writePacket(frame: Uint8Array, durationSamples: number) {
