@@ -10,7 +10,9 @@ import type {
 import type { Session } from './session';
 
 import { SERVICE_NOTIFICATIONS_USER_ID } from '../../config';
+import { encodeWaveform } from '../../util/waveform';
 import { toHex, utf8 } from './core/bytes';
+import { MAX_ALBUM_IMAGES } from './core/payloads';
 import { toGroupChatId, toUserId } from './ids';
 
 // How the Onym network looks through Telegram's window: a Founder group is a basic group, each member a user keyed
@@ -164,10 +166,14 @@ function buildMessageContent(message: Message): ApiMessage['content'] {
   }
   if (message.voice) {
     const { sha256: hash, durationSeconds, waveform, byteSize } = message.voice;
-    // The waveform is drawn relative to its own peak, so the apps' 0…255 values need no rescaling
+    // Telegram's waveform is 5-bit values packed together; the apps send 0…255
     return {
       voice: {
-        mediaType: 'voice', id: hash, duration: Math.round(durationSeconds), waveform, size: byteSize,
+        mediaType: 'voice',
+        id: hash,
+        duration: Math.round(durationSeconds),
+        waveform: encodeWaveform(waveform.map((bar) => Math.round((bar * 31) / 255))),
+        size: byteSize,
       },
       text,
     };
@@ -185,9 +191,14 @@ function buildPhoto(image: ImageAttachment, message: Message): ApiPhoto {
   };
 }
 
-// Video is not shown here yet: its place in the message says so
+// Video is not shown here yet, nor album photos past the tenth: their place in the message says so
 function buildCaption(message: Message) {
-  const note = message.hasUnsupportedMedia ? '📎 Video — this interface does not play Onym video yet' : undefined;
-  const text = [note, message.text].filter(Boolean).join('\n');
+  const omitted = message.omittedImageCount;
+  const notes = [
+    message.hasUnsupportedMedia ? '📎 Video — this interface does not play Onym video yet' : undefined,
+    omitted ? `📎 ${omitted} more photo${omitted === 1 ? '' : 's'} — this interface shows ${MAX_ALBUM_IMAGES} per album`
+      : undefined,
+  ];
+  const text = [...notes, message.text].filter(Boolean).join('\n');
   return text ? { text } : undefined;
 }

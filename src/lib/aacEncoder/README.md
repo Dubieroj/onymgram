@@ -13,6 +13,9 @@ worker is served here as a file of its own. It is the template literal passed to
 sha256 93d0c3879604e40c31a97cf9d53c386e2851064a1576d04cad37406e124490e0  aacEncoder.worker.js
 ```
 
+The package it came from, as npm records it (`npm view @mediabunny/aac-encoder@1.60.0 dist.integrity`):
+`sha512-wevrs3VuwOKMmXkEn01KIwapKAe5QoGazWyND1B9pYUz+GC+wxfVcyv9kUfrpXDfy/xPhM7pOePCHSC9aw0k5A==`.
+
 The worker takes `{ id, command }` messages, where a command is `init` (`numberOfChannels`, `sampleRate`,
 `bitrate`), `encode` (`ctx`, `audioData`: one frame of interleaved 32-bit float samples, `timestamp` in samples)
 or `flush` (`ctx`), and answers `{ id, success, data }` in order.

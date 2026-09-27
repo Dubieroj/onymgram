@@ -120,6 +120,8 @@ export type ChatMessage = {
   images?: ImageAttachment[];
   voice?: VoiceAttachment;
   hasUnsupportedMedia?: boolean;
+  // Album photos past the first MAX_ALBUM_IMAGES, which are not shown
+  omittedImageCount?: number;
 };
 
 export type JoinRequest = {
@@ -139,6 +141,11 @@ export type InboundPayload = GroupInviteOffer | GroupStateRefresh | MemberAnnoun
 type Json = Record<string, unknown>;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SHA256_RE = /^[0-9a-f]{64}$/;
+// The iOS app sends at most ten, and Telegram draws an album of up to ten
+export const MAX_ALBUM_IMAGES = 10;
+// The apps send 40 bars; a longer list is cut
+const MAX_WAVEFORM_BARS = 128;
 
 // Tried in the order the Onym apps try them (`IncomingMessageDispatcher`): a payload is the first type whose
 // required fields all decode
@@ -276,7 +283,8 @@ function decodeChatMessage(json: Json): ChatMessage | undefined {
   const variant = object(json.variant);
   const image = optional(json.attachment, decodeImage);
   const album = optional(json.attachments, array)?.map((item) => object(item));
-  const images = album?.filter((item) => item.kind === 'image').map((item) => decodeImage(item.image));
+  const albumImages = album?.filter((item) => item.kind === 'image') || [];
+  const images = albumImages.slice(0, MAX_ALBUM_IMAGES).map((item) => decodeImage(item.image));
   const voice = optional(json.voice_attachment, decodeVoice);
   const hasUnsupportedMedia = !isAbsent(json.video_attachment) || Boolean(album?.some((item) => item.kind !== 'image'));
   return {
@@ -289,16 +297,17 @@ function decodeChatMessage(json: Json): ChatMessage | undefined {
     variantKind: string(variant.kind),
     body: string(variant.body),
     image,
-    images: images?.length ? images : undefined,
+    images: images.length ? images : undefined,
     voice,
     hasUnsupportedMedia: hasUnsupportedMedia || undefined,
+    omittedImageCount: albumImages.length - images.length || undefined,
   };
 }
 
 function decodeImage(value: unknown): ImageAttachment {
   const json = object(value);
   return {
-    sha256: string(json.sha256).toLowerCase(),
+    sha256: sha256Hex(json.sha256),
     mimeType: string(json.mime_type),
     byteSize: integer(json.byte_size),
     width: integer(json.width),
@@ -315,12 +324,13 @@ function decodeVoice(value: unknown): VoiceAttachment {
     throw new Error('Expected duration');
   }
   return {
-    sha256: string(json.sha256).toLowerCase(),
+    sha256: sha256Hex(json.sha256),
     mimeType: string(json.mime_type),
     byteSize: integer(json.byte_size),
     durationSeconds: Math.max(0, json.duration_seconds),
     encryptionKey: bytes(json.enc_key, 32),
-    waveform: array(json.waveform).map((sample) => Math.max(0, Math.min(255, integer(sample)))),
+    waveform: array(json.waveform).slice(0, MAX_WAVEFORM_BARS)
+      .map((sample) => Math.max(0, Math.min(255, integer(sample)))),
     server: optional(json.server, string),
   };
 }
@@ -441,6 +451,13 @@ function bytes(value: unknown, length?: number) {
   const decoded = fromBase64(string(value));
   if (length !== undefined && decoded.length !== length) throw new Error(`Expected ${length} bytes`);
   return toHex(decoded);
+}
+
+// A blob's name on Blossom, which becomes part of media URLs: nothing but 64 hex digits
+function sha256Hex(value: unknown) {
+  const hash = string(value).toLowerCase();
+  if (!SHA256_RE.test(hash)) throw new Error('Expected a SHA-256 hex digest');
+  return hash;
 }
 
 function uuid(value: unknown) {

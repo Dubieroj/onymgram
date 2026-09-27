@@ -161,5 +161,20 @@ describe('payloads', () => {
     expect(decodeInboundPayload(utf8(JSON.stringify(mixed)))).toMatchObject({
       images: [image], hasUnsupportedMedia: true,
     });
+
+    // Past ten photos an album shows its first ten and counts the rest
+    const large = { ...album, attachments: Array.from({ length: 12 }, () => album.attachments[0]) };
+    const largeMessage = decodeInboundPayload(utf8(JSON.stringify(large)));
+    expect(largeMessage).toMatchObject({ omittedImageCount: 2 });
+    expect(largeMessage?.type === 'message' && largeMessage.images).toHaveLength(10);
+
+    // A hash names a Blossom blob and becomes part of media URLs: nothing but 64 hex digits
+    const traversal = { ...clip, voice_attachment: { ...clip.voice_attachment, sha256: `../${'ab'.repeat(30)}` } };
+    expect(decodeInboundPayload(utf8(JSON.stringify(traversal)))).toBeUndefined();
+
+    // A waveform is cut to 128 bars
+    const long = { ...clip, voice_attachment: { ...clip.voice_attachment, waveform: new Array(1000).fill(9) } };
+    const longMessage = decodeInboundPayload(utf8(JSON.stringify(long)));
+    expect(longMessage?.type === 'message' && longMessage.voice?.waveform).toHaveLength(128);
   });
 });

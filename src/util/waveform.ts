@@ -30,6 +30,19 @@ export function decodeWaveform(encoded5bit: Uint8Array) {
   return result;
 }
 
+// Packs 0…31 values five bits each, the format decodeWaveform reads
+export function encodeWaveform(values: number[]) {
+  const bytes = new Array<number>(Math.ceil((values.length * 5) / 8)).fill(0);
+  values.forEach((value, i) => {
+    const bitOffset = i * 5;
+    const byteIndex = bitOffset >> 3;
+    const bitShift = bitOffset & 7;
+    bytes[byteIndex] |= (value << bitShift) & 0xFF;
+    if (bitShift > 3) bytes[byteIndex + 1] |= value >> (8 - bitShift);
+  });
+  return bytes;
+}
+
 export function interpolateArray(data: number[], fitCount: number) {
   let peak = 0;
   const newData = new Array<number>(fitCount);

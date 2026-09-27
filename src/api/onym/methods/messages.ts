@@ -7,7 +7,6 @@ import type { ImageAttachment } from '../core/payloads';
 import type { Message, OutgoingContent } from '../messenger';
 import type { Session } from '../session';
 
-import { decodeWaveform } from '../../../util/waveform';
 import { sendApiUpdate } from '../../gramjs/updates/apiUpdateEmitter';
 import { parseIdentityLink, parseJoinLink } from '../core/links';
 import { getMessageSpan } from '../messenger';
@@ -280,7 +279,7 @@ function buildLocalVoice({ voice, size }: ApiAttachment): ApiVoice {
     mediaType: 'voice',
     id: LOCAL_MEDIA_ID,
     duration: voice!.duration,
-    waveform: Array.from(decodeWaveform(new Uint8Array(voice!.waveform))),
+    waveform: voice!.waveform,
     size,
   };
 }

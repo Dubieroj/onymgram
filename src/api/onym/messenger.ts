@@ -78,6 +78,7 @@ export type Message = {
   images?: ImageAttachment[];
   voice?: VoiceAttachment;
   hasUnsupportedMedia?: boolean;
+  omittedImageCount?: number;
 };
 
 export type OutgoingContent = {
@@ -589,6 +590,7 @@ export class Messenger {
       images: message.images,
       voice: message.voice,
       hasUnsupportedMedia: message.hasUnsupportedMedia,
+      omittedImageCount: message.omittedImageCount,
     });
 
     void this.sendReceipt(group, message.senderBlsPublicKey, 'delivered', [message.messageId]);
